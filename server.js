@@ -1,4 +1,4 @@
-/// server.js
+// server.js
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +9,6 @@ const admin = require("./admin.js");
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, "public");
 const SAVE_FILE = path.join(process.env.DATA_DIR || __dirname, "saves.json");
-const NUM_DUCKS = Config.DuckNames.length;
 
 let saves = {};
 try { saves = JSON.parse(fs.readFileSync(SAVE_FILE, "utf8")); } catch {}
@@ -33,20 +32,32 @@ process.on("SIGINT", flushAndExit);
 process.on("SIGTERM", flushAndExit);
 
 // ---- game logic ---------------------------------------------------------
+const NUM_DUCKS = Config.DuckNames.length;
+
 const newData = () => ({
   Coins: 100, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
   Stage: 1, Rebirths: 0, Earned: 0, World: 1,
 });
 
-const totalDucks = (d) => d.Ducks.reduce((a, b) => a + b, 0);
+function ensureValidDucks(d) {
+  if (!Array.isArray(d.Ducks)) d.Ducks = [];
+  while (d.Ducks.length < NUM_DUCKS) d.Ducks.push(0);
+}
+
+const totalDucks = (d) => {
+  ensureValidDucks(d);
+  return d.Ducks.reduce((a, b) => a + b, 0);
+};
 
 const worldMult = (d) => Config.Worlds[d.World || 1]?.coinMult || 1;
 const worldLemonMult = (d) => Config.Worlds[d.World || 1]?.lemonMult || 1;
 
-const incomePerSec = (d) =>
-  d.Ducks.reduce((sum, n, i) => sum + n * Config.DuckIncome(i + 1), 0) *
-  Config.RebirthMult(d.Rebirths) *
-  worldMult(d);
+const incomePerSec = (d) => {
+  ensureValidDucks(d);
+  return d.Ducks.reduce((sum, n, i) => sum + n * Config.DuckIncome(i + 1), 0) *
+    Config.RebirthMult(d.Rebirths) *
+    worldMult(d);
+};
 
 function addCoins(d, n) { d.Coins += n; d.Earned += n; }
 
@@ -58,6 +69,7 @@ function sanitizeName(s) {
 function handleAction(rec, action, arg) {
   const d = rec.d;
   if (!d.World) d.World = 1;
+  ensureValidDucks(d);
 
   if (action === "PickLemons") {
     const now = Date.now();
@@ -122,6 +134,7 @@ const broadcast = (obj) => { for (const ws of online.keys()) send(ws, obj); };
 
 function stateFor(rec) {
   const d = rec.d;
+  ensureValidDucks(d);
   return {
     t: "state", Coins: d.Coins, Lemons: d.Lemons, Ducks: d.Ducks, Stage: d.Stage,
     Rebirths: d.Rebirths, World: d.World || 1, Income: incomePerSec(d),
@@ -161,6 +174,7 @@ wss.on("connection", (ws, req) => {
       } else {
         s.name = name;
         if (!s.d.World) s.d.World = 1;
+        ensureValidDucks(s.d);
         const secs = Math.min((Date.now() - (s.lastSeen || Date.now())) / 1000, Config.OfflineCapSeconds);
         offline = Math.floor(incomePerSec(s.d) * secs * Config.OfflineRate);
         if (offline > 0) addCoins(s.d, offline);
