@@ -1,47 +1,32 @@
-// Duck & Lemon Tycoon - authoritative multiplayer server
-// Run: npm install && npm start   ->   http://localhost:3000
+/// server.js
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 const Config = require("./public/config.js");
 const admin = require("./admin.js");
-const store = require("./store.js");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, "public");
+const SAVE_FILE = path.join(process.env.DATA_DIR || __dirname, "saves.json");
 const NUM_DUCKS = Config.DuckNames.length;
 
 let saves = {};
-let dirty = false;           // kept for readability; saving is driven by online players + pending set
-const pending = new Set();   // tokens of players who disconnected since the last save
-let writing = false;
+try { saves = JSON.parse(fs.readFileSync(SAVE_FILE, "utf8")); } catch {}
 
-async function writeSaves() {
-  if (writing) return;
-  const tokens = new Set(pending);
-  pending.clear();
-  for (const rec of online.values()) tokens.add(rec.token);
-  if (!tokens.size) return;
-  writing = true;
-  try {
-    await store.save([...tokens], saves);
-  } catch (e) {
-    console.error("Save error:", e.message);
-    tokens.forEach((t) => pending.add(t)); // retry next time
-  } finally {
-    writing = false;
-  }
+let dirty = false;
+function writeSaves() {
+  if (!dirty) return;
+  dirty = false;
+  fs.writeFile(SAVE_FILE + ".tmp", JSON.stringify(saves), (err) => {
+    if (err) return console.error("Save error:", err);
+    fs.rename(SAVE_FILE + ".tmp", SAVE_FILE, () => {});
+  });
 }
-setInterval(writeSaves, 20000);
+setInterval(writeSaves, 15000);
 
-let exiting = false;
-async function flushAndExit() {
-  if (exiting) return;
-  exiting = true;
-  setTimeout(() => process.exit(0), 8000).unref();
-  writing = false;
-  await writeSaves();
+function flushAndExit() {
+  try { fs.writeFileSync(SAVE_FILE, JSON.stringify(saves)); } catch {}
   process.exit(0);
 }
 process.on("SIGINT", flushAndExit);
@@ -50,11 +35,19 @@ process.on("SIGTERM", flushAndExit);
 // ---- game logic ---------------------------------------------------------
 const newData = () => ({
   Coins: 100, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
-  Stage: 1, Rebirths: 0, Earned: 0,
+  Stage: 1, Rebirths: 0, Earned: 0, World: 1,
 });
+
 const totalDucks = (d) => d.Ducks.reduce((a, b) => a + b, 0);
+
+const worldMult = (d) => Config.Worlds[d.World || 1]?.coinMult || 1;
+const worldLemonMult = (d) => Config.Worlds[d.World || 1]?.lemonMult || 1;
+
 const incomePerSec = (d) =>
-  d.Ducks.reduce((sum, n, i) => sum + n * Config.DuckIncome(i + 1), 0) * Config.RebirthMult(d.Rebirths);
+  d.Ducks.reduce((sum, n, i) => sum + n * Config.DuckIncome(i + 1), 0) *
+  Config.RebirthMult(d.Rebirths) *
+  worldMult(d);
+
 function addCoins(d, n) { d.Coins += n; d.Earned += n; }
 
 function sanitizeName(s) {
@@ -64,13 +57,15 @@ function sanitizeName(s) {
 
 function handleAction(rec, action, arg) {
   const d = rec.d;
+  if (!d.World) d.World = 1;
+
   if (action === "PickLemons") {
     const now = Date.now();
     if (now - (rec.lastPick || 0) < 100) return;
     rec.lastPick = now;
-    d.Lemons += Config.Stage(d.Stage).PickAmount * admin.mult("lemons");
+    d.Lemons += Config.Stage(d.Stage).PickAmount * worldLemonMult(d) * admin.mult("lemons");
   } else if (action === "SellLemons") {
-    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths) * admin.mult("coins"));
+    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths) * worldMult(d) * admin.mult("coins"));
     d.Lemons = 0;
   } else if (action === "BuyDuck") {
     const tier = Number(arg);
@@ -92,7 +87,14 @@ function handleAction(rec, action, arg) {
     const fresh = newData();
     fresh.Rebirths = d.Rebirths + 1;
     fresh.Earned = d.Earned;
+    fresh.World = d.World;
     rec.d = saves[rec.token].d = fresh;
+  } else if (action === "SwitchWorld") {
+    const targetWorld = Number(arg);
+    const wConfig = Config.Worlds[targetWorld];
+    if (wConfig && d.Rebirths >= wConfig.unlockRebirths) {
+      d.World = targetWorld;
+    }
   }
   dirty = true;
 }
@@ -113,7 +115,7 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server, maxPayload: 4096 });
-const online = new Map(); // ws -> rec
+const online = new Map();
 
 const send = (ws, obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
 const broadcast = (obj) => { for (const ws of online.keys()) send(ws, obj); };
@@ -122,7 +124,8 @@ function stateFor(rec) {
   const d = rec.d;
   return {
     t: "state", Coins: d.Coins, Lemons: d.Lemons, Ducks: d.Ducks, Stage: d.Stage,
-    Rebirths: d.Rebirths, Income: incomePerSec(d), LemonRate: Config.Stage(d.Stage).LemonsPerSec,
+    Rebirths: d.Rebirths, World: d.World || 1, Income: incomePerSec(d),
+    LemonRate: Config.Stage(d.Stage).LemonsPerSec * worldLemonMult(d),
     Slots: Config.MaxSlots(d.Stage), Total: totalDucks(d), Buffs: admin.snapshot(),
   };
 }
@@ -131,9 +134,9 @@ function boardMsg() {
   const rows = Object.values(saves)
     .sort((a, b) => b.d.Rebirths - a.d.Rebirths || b.d.Earned - a.d.Earned)
     .slice(0, 10)
-    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, earned: s.d.Earned }));
+    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, earned: s.d.Earned, world: s.d.World || 1 }));
   const players = [...online.values()].map((r) => ({
-    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths,
+    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths, world: r.d.World || 1,
   }));
   return { t: "board", rows, players };
 }
@@ -157,6 +160,7 @@ wss.on("connection", (ws, req) => {
         s = saves[token] = { name, d: newData(), lastSeen: Date.now() };
       } else {
         s.name = name;
+        if (!s.d.World) s.d.World = 1;
         const secs = Math.min((Date.now() - (s.lastSeen || Date.now())) / 1000, Config.OfflineCapSeconds);
         offline = Math.floor(incomePerSec(s.d) * secs * Config.OfflineRate);
         if (offline > 0) addCoins(s.d, offline);
@@ -179,7 +183,7 @@ wss.on("connection", (ws, req) => {
       if (r.ok) console.log("Admin login:", rec.name);
     } else if (m.t === "admin") {
       if (!rec.admin) return send(ws, { t: "admin_err", msg: "Not authorised." });
-      const result = admin.handle(m, { online, Config, addCoins, totalDucks, broadcast });
+      const result = admin.handle(m, { online, Config, addCoins, totalDucks, broadcast, saves });
       console.log("Admin cmd:", rec.name, m.cmd);
       send(ws, { t: "admin_ok", msg: result });
       for (const [w, r] of online) send(w, stateFor(r));
@@ -196,7 +200,7 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => {
     if (rec) {
       saves[rec.token].lastSeen = Date.now();
-      pending.add(rec.token);
+      dirty = true;
       online.delete(ws);
     }
   });
@@ -207,7 +211,7 @@ setInterval(() => {
   for (const [ws, rec] of online) {
     const d = rec.d;
     addCoins(d, incomePerSec(d) * admin.mult("coins"));
-    d.Lemons += Config.Stage(d.Stage).LemonsPerSec * admin.mult("lemons");
+    d.Lemons += Config.Stage(d.Stage).LemonsPerSec * worldLemonMult(d) * admin.mult("lemons");
     saves[rec.token].lastSeen = Date.now();
     send(ws, stateFor(rec));
   }
@@ -216,9 +220,4 @@ setInterval(() => {
 
 setInterval(() => broadcast(boardMsg()), 3000);
 
-store.load()
-  .then((loaded) => {
-    saves = loaded;
-    server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
-  })
-  .catch((e) => { console.error(e.message); process.exit(1); });
+server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
