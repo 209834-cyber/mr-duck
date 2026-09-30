@@ -1,5 +1,4 @@
-// Admin module: global buffs & events. The secret code lives ONLY on the server.
-// Set it with the ADMIN_CODE environment variable (never hard-code it in a public repo).
+// admin.js
 "use strict";
 const crypto = require("crypto");
 
@@ -7,7 +6,7 @@ const CODE = String(process.env.ADMIN_CODE || "");
 const enabled = CODE.length >= 6;
 
 const buffs = { coins: { mult: 1, until: 0 }, lemons: { mult: 1, until: 0 } };
-const attempts = new Map(); // ip -> { fails, until }
+const attempts = new Map();
 
 const mult = (kind) => (Date.now() < buffs[kind].until ? buffs[kind].mult : 1);
 
@@ -41,7 +40,6 @@ function tryLogin(ip, code) {
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+n) ? +n : lo));
 
-// ctx: { online (Map ws->rec), Config, addCoins, totalDucks, broadcast }
 function handle(m, ctx) {
   const { online, Config, addCoins, totalDucks, broadcast } = ctx;
   const N = Config.DuckNames.length;
@@ -80,15 +78,15 @@ function handle(m, ctx) {
       banner("Global buffs ended.");
       return "Buffs cleared";
     case "giveCoins": {
-      const amt = clamp(m.amount, 1, 1e15);
+      const amt = clamp(m.amount, 1, 1e18);
       players.forEach((r) => addCoins(r.d, amt));
-      banner(`💸 ADMIN GIFT: everyone received ${ctx.Config.Format(amt)} coins!`);
+      banner(`💸 ADMIN GIFT: everyone received ${Config.Format(amt)} coins!`);
       return `Gave ${amt} coins to ${players.length} players`;
     }
     case "giveLemons": {
-      const amt = clamp(m.amount, 1, 1e15);
+      const amt = clamp(m.amount, 1, 1e18);
       players.forEach((r) => (r.d.Lemons += amt));
-      banner(`🍋 LEMON SHOWER: everyone received ${ctx.Config.Format(amt)} lemons!`);
+      banner(`🍋 LEMON SHOWER: everyone received ${Config.Format(amt)} lemons!`);
       return `Gave ${amt} lemons to ${players.length} players`;
     }
     case "giftDuck": {
@@ -96,15 +94,32 @@ function handle(m, ctx) {
       let n = 0;
       players.forEach((r) => { if (giveDuck(r.d, tier)) n++; });
       banner(`🎁 FREE DUCK: everyone got a ${Config.DuckNames[tier - 1]}!`);
-      return `Gave ${Config.DuckNames[tier - 1]} to ${n}/${players.length} players (full ponds skipped)`;
+      return `Gave ${Config.DuckNames[tier - 1]} to ${n}/${players.length} players`;
     }
     case "duckRain": {
       let n = 0;
       players.forEach((r) => {
-        for (let k = 0; k < 3; k++) if (giveDuck(r.d, 1 + Math.floor(Math.random() * 6))) n++;
+        for (let k = 0; k < 3; k++) if (giveDuck(r.d, 1 + Math.floor(Math.random() * N))) n++;
       });
-      banner("🌧️ DUCK RAIN! Free ducks fell into everyone's pond!");
+      banner("🌧️ DUCK RAIN! High-tier ducks fell into everyone's pond!");
       return `Rained ${n} ducks on ${players.length} players`;
+    }
+    case "setRebirths": {
+      const amount = Math.floor(clamp(m.amount, 0, 10000));
+      players.forEach((r) => { r.d.Rebirths = amount; });
+      banner(`⚡ ADMIN EVENT: Everyone's Rebirth count set to ${amount}!`);
+      return `Set rebirths to ${amount} for all online players`;
+    }
+    case "teleportAll": {
+      const worldId = clamp(m.world, 1, 3);
+      players.forEach((r) => { r.d.World = worldId; });
+      banner(`🌀 TELEPORT: Admin warped everyone to World ${worldId} (${Config.Worlds[worldId].name})!`);
+      return `Teleported all players to World ${worldId}`;
+    }
+    case "clearDucks": {
+      players.forEach((r) => { r.d.Ducks = new Array(N).fill(0); });
+      banner("🧹 ADMIN EVENT: All duck ponds have been emptied!");
+      return "Cleared all active players' ducks";
     }
     case "announce": {
       const msg = String(m.msg || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120);
