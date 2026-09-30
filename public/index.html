@@ -1,234 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Duck & Lemon Tycoon</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #111827; color: #f9fafb; margin: 0; padding: 20px;
-    }
-    .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-    .card { background: #1f2937; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
-    h1, h2, h3 { margin-top: 0; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 15px; }
-    .stat-box { background: #374151; padding: 10px; border-radius: 8px; text-align: center; }
-    .stat-value { font-size: 1.25rem; font-weight: bold; color: #f59e0b; }
-    .stat-label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; }
-    
-    button {
-      background: #f59e0b; color: #111827; border: none; padding: 10px 16px;
-      font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; margin: 2px;
-    }
-    button:hover { background: #d97706; }
-    button:disabled { background: #4b5563; color: #9ca3af; cursor: not-allowed; }
-    
-    .tab-buttons { display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 2px solid #374151; padding-bottom: 10px; }
-    .tab-btn { background: #374151; color: #f9fafb; }
-    .tab-btn.active { background: #f59e0b; color: #111827; }
-    
-    .grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; }
-    .item-card { background: #374151; padding: 10px; border-radius: 8px; text-align: center; }
-    
-    .admin-card { border: 2px solid #ef4444; background: #2a1215; }
-    .world-btn { background: #3b82f6; color: white; }
-    .world-btn:hover { background: #2563eb; }
-    
-    input { background: #374151; border: 1px solid #4b5563; color: #fff; padding: 8px 12px; border-radius: 6px; width: 100%; margin-bottom: 8px; }
-    #chat-box { height: 200px; overflow-y: auto; background: #111827; border-radius: 6px; padding: 10px; font-size: 0.875rem; margin-bottom: 10px; }
-    .chat-msg { margin-bottom: 4px; }
-    .chat-name { font-weight: bold; color: #f59e0b; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duck & Lemon Tycoon</title>
+<style>
+  :root { --bg:#7ed6f4; --panel:#fff8d6; --dark:#22303c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Trebuchet MS", system-ui, sans-serif; background: linear-gradient(#bfeaff,#7ed6f4); color:var(--dark); min-height:100vh; }
+  #login { position:fixed; inset:0; background:rgba(20,30,40,.85); display:flex; align-items:center; justify-content:center; z-index:10; }
+  #login .box { background:var(--panel); padding:28px; border-radius:16px; text-align:center; width:min(90vw,340px); }
+  #login input { width:100%; padding:10px; font-size:18px; border-radius:8px; border:2px solid #cbb; margin:12px 0; }
+  button { font-family:inherit; font-weight:bold; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; color:#fff; font-size:15px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button:active:not(:disabled) { transform:scale(.97); }
+  header { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding:10px; background:var(--dark); color:#fff; font-weight:bold; }
+  header span { background:#34495e; padding:6px 12px; border-radius:20px; }
+  main { display:grid; grid-template-columns: 260px 1fr 300px; gap:12px; padding:12px; max-width:1300px; margin:auto; }
+  @media (max-width:950px){ main { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border-radius:14px; padding:12px; box-shadow:0 3px 0 rgba(0,0,0,.15); }
+  .panel h3 { margin:0 0 8px; }
+  .col { display:flex; flex-direction:column; gap:12px; }
+  .btn-col { display:flex; flex-direction:column; gap:8px; }
+  #lemon { background:#e6b800; font-size:20px; padding:16px; }
+  #sell { background:#3aa655; }
+  #upgrade { background:#4a6fdc; }
+  #rebirth { background:#aa3cc8; }
+  #pond { background: radial-gradient(ellipse at center,#5cc3ee,#3aa0d0); border-radius:14px; min-height:320px; padding:12px; display:grid; grid-template-columns:repeat(10,1fr); gap:4px; align-content:start; box-shadow: inset 0 0 30px rgba(0,0,0,.25); }
+  .duck { text-align:center; line-height:1; animation: bob 2s ease-in-out infinite; user-select:none; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  #shop { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+  .shopitem { display:flex; justify-content:space-between; align-items:center; text-align:left; color:#111; border:2px solid rgba(0,0,0,.15); }
+  .shopitem small { display:block; font-weight:normal; opacity:.75; }
+  #chatlog { height:150px; overflow-y:auto; background:#fff; border-radius:8px; padding:6px; font-size:13px; }
+  #chatin { width:100%; padding:8px; border-radius:8px; border:2px solid #cbb; margin-top:6px; }
+  ol,ul { margin:0; padding-left:20px; font-size:14px; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--dark); color:#fff; padding:10px 18px; border-radius:20px; display:none; z-index:20; }
+</style>
 </head>
 <body>
+<div id="login"><div class="box">
+  <h1>🦆 Duck & Lemon Tycoon 🍋</h1>
+  <p>Pick a name to join the pond</p>
+  <input id="nameIn" maxlength="16" placeholder="Your name">
+  <button id="joinBtn" style="background:#e6b800;width:100%">Play!</button>
+</div></div>
 
-  <div class="container">
-    <!-- Main Left Column -->
-    <div>
-      <h1>🦆 Duck & Lemon Tycoon</h1>
+<header>
+  <span id="coins">💰 0</span><span id="lemons">🍋 0</span>
+  <span id="ducks">🦆 0/10</span><span id="stage">Lemon Stand</span><span id="reb">🔄 x1</span>
+</header>
 
-      <!-- Stats -->
-      <div class="card">
-        <div class="stats-grid">
-          <div class="stat-box"><div class="stat-value" id="coins">0</div><div class="stat-label">Coins</div></div>
-          <div class="stat-box"><div class="stat-value" id="lemons">0</div><div class="stat-label">Lemons</div></div>
-          <div class="stat-box"><div class="stat-value" id="income">0/s</div><div class="stat-label">Income</div></div>
-          <div class="stat-box"><div class="stat-value" id="rebirths">0</div><div class="stat-label">Rebirths</div></div>
-          <div class="stat-box"><div class="stat-value" id="current-world">1</div><div class="stat-label">World</div></div>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button onclick="sendAct('PickLemons')">🍋 Pick Lemons</button>
-          <button onclick="sendAct('SellLemons')">💰 Sell Lemons</button>
-          <button onclick="sendAct('UpgradeLemon')">⬆️ Upgrade Business</button>
-          <button onclick="sendAct('Rebirth')">🔄 Rebirth</button>
-        </div>
-      </div>
-
-      <!-- Worlds Navigation -->
-      <div class="card">
-        <h3>🌐 Travel Worlds</h3>
-        <button class="world-btn" onclick="sendAct('SwitchWorld', 1)">World 1: Classic Pond</button>
-        <button class="world-btn" onclick="sendAct('SwitchWorld', 2)">World 2: Golden Realm (Req: 1 Rebirth)</button>
-        <button class="world-btn" onclick="sendAct('SwitchWorld', 3)">World 3: Galactic Nebula (Req: 5 Rebirths)</button>
-      </div>
-
-      <!-- Tabs & Store -->
-      <div class="card">
-        <div class="tab-buttons">
-          <button class="tab-btn active" onclick="showTab('ducks')">🦆 Duck Market</button>
-          <button class="tab-btn" onclick="showTab('upgrades')">🏢 Upgrades</button>
-        </div>
-
-        <div id="tab-ducks">
-          <p>Slots: <span id="slots-used">0</span>/<span id="slots-max">0</span></p>
-          <div class="grid-list" id="duck-shop"></div>
-        </div>
-
-        <div id="tab-upgrades" style="display: none;">
-          <h3>Business Upgrade</h3>
-          <p id="upgrade-name">Lemonade Stand</p>
-          <p id="upgrade-cost">Cost: 100 Coins</p>
-        </div>
-      </div>
+<main>
+  <div class="col">
+    <div class="panel btn-col">
+      <h3>Lemon Business</h3>
+      <button id="lemon">🍋 Pick Lemons</button>
+      <button id="sell">💰 Sell Lemons</button>
+      <button id="upgrade">Upgrade</button>
+      <button id="rebirth">Rebirth</button>
     </div>
-
-    <!-- Right Column (Chat & Admin) -->
-    <div>
-      <!-- Live Chat & Board -->
-      <div class="card">
-        <h3>💬 Pond Chat</h3>
-        <div id="chat-box"></div>
-        <input type="text" id="chat-input" placeholder="Say something..." onkeydown="if(event.key==='Enter') sendChat()">
-        <button onclick="sendChat()" style="width: 100%;">Send</button>
-      </div>
-
-      <!-- Admin Panel -->
-      <div class="card admin-card">
-        <h3 style="color: #ef4444;">⚡ Admin Panel</h3>
-        <div id="admin-login-box">
-          <input type="password" id="admin-code-input" placeholder="Admin Secret Code">
-          <button onclick="loginAdmin()" style="width: 100%;">Login</button>
-        </div>
-
-        <div id="admin-controls-box" style="display: none;">
-          <p style="color: #4ade80; font-weight: bold; margin-top: 0;">Admin Authenticated</p>
-          
-          <p><strong>Teleport Players</strong></p>
-          <button onclick="adminTeleportAll(1)">All -> World 1</button>
-          <button onclick="adminTeleportAll(2)">All -> World 2</button>
-          <button onclick="adminTeleportAll(3)">All -> World 3</button>
-
-          <p><strong>Events & Gifts</strong></p>
-          <button onclick="adminDuckRain()">🌧️ Duck Rain</button>
-          <button onclick="adminLuckyHour(5, 10)">x5 Boost (10m)</button>
-          <button onclick="adminClearBuffs()">Clear Buffs</button>
-          
-          <input type="number" id="gift-coins" placeholder="Coin Amount" style="margin-top: 8px;">
-          <button onclick="adminGiveCoins(document.getElementById('gift-coins').value)">Give Coins</button>
-          
-          <input type="number" id="duck-tier" placeholder="Duck Tier (1-1000)" style="margin-top: 8px;">
-          <button onclick="adminGiftDuck(document.getElementById('duck-tier').value)">Gift Tier Duck</button>
-        </div>
-      </div>
-    </div>
+    <div class="panel"><h3>Online 🌐</h3><ul id="online"></ul></div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="admin.js"></script>
-  <script>
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${location.host}`);
-    window.gameSocket = ws;
+  <div class="col">
+    <div class="panel"><h3>Your Pond</h3><div id="pond"></div></div>
+    <div class="panel"><h3>Duck Shop</h3><div id="shop"></div></div>
+  </div>
 
-    let token = localStorage.getItem("duck_tycoon_token");
-    if (!token) {
-      token = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      localStorage.setItem("duck_tycoon_token", token);
-    }
+  <div class="col">
+    <div class="panel"><h3>🏆 Leaderboard</h3><ol id="board"></ol></div>
+    <div class="panel"><h3>Chat</h3><div id="chatlog"></div>
+      <input id="chatin" maxlength="120" placeholder="Say something and press Enter"></div>
+  </div>
+</main>
+<div id="toast"></div>
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ t: "login", token, name: "Player" }));
-    };
+<script src="config.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const F = Config.Format;
+const COLORS = [55,50,200,45,120,190,30,60,42,180,350,150,185,170,200,20,195,270,0,290]; // hue per tier
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.t === "state") {
-        document.getElementById("coins").innerText = Config.Format(msg.Coins);
-        document.getElementById("lemons").innerText = Config.Format(msg.Lemons);
-        document.getElementById("income").innerText = Config.Format(msg.Income) + "/s";
-        document.getElementById("rebirths").innerText = msg.Rebirths;
-        document.getElementById("current-world").innerText = msg.World;
-        document.getElementById("slots-used").innerText = msg.Total;
-        document.getElementById("slots-max").innerText = msg.Slots;
+let token = localStorage.getItem("duckToken");
+if (!token) { token = crypto.randomUUID() + crypto.randomUUID(); localStorage.setItem("duckToken", token); }
+$("nameIn").value = localStorage.getItem("duckName") || "";
 
-        renderDuckShop(msg.Coins, msg.Ducks);
-      } else if (msg.t === "chat") {
-        addChat(msg.name, msg.msg);
-      } else if (msg.t === "admin_ok") {
-        document.getElementById("admin-login-box").style.display = "none";
-        document.getElementById("admin-controls-box").style.display = "block";
-      } else if (msg.t === "admin_err") {
-        alert("Admin error: " + msg.msg);
-      } else if (msg.t === "banner") {
-        addChat("📢 SYSTEM", msg.msg);
+let ws, state = null;
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 4000); }
+
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+  ws.onopen = () => ws.send(JSON.stringify({ t: "login", token, name: $("nameIn").value }));
+  ws.onclose = () => { toast("Disconnected. Reconnecting..."); setTimeout(connect, 2000); };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (window.onExtraMsg) window.onExtraMsg(m);
+    if (m.t === "welcome") { $("login").style.display = "none"; if (m.offline > 0) toast("Welcome back! Your ducks earned " + F(m.offline) + " coins while you were away."); }
+    else if (m.t === "state") { state = m; render(); }
+    else if (m.t === "board") renderBoard(m);
+    else if (m.t === "chat") addChat(m.name, m.msg);
+    else if (m.t === "err") toast(m.msg);
+  };
+}
+$("joinBtn").onclick = () => { localStorage.setItem("duckName", $("nameIn").value); connect(); };
+$("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
+
+const act = (a, arg) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "act", a, arg }));
+$("lemon").onclick = () => act("PickLemons");
+$("sell").onclick = () => act("SellLemons");
+$("upgrade").onclick = () => act("UpgradeLemon");
+$("rebirth").onclick = () => { if (confirm("Rebirth resets your coins, lemons, ducks and lemon stage for a permanent multiplier. Continue?")) act("Rebirth"); };
+
+// shop
+const shopEls = [];
+Config.DuckNames.forEach((name, i) => {
+  const b = document.createElement("button");
+  b.className = "shopitem";
+  b.style.background = `hsl(${COLORS[i]},80%,75%)`;
+  b.onclick = () => act("BuyDuck", i + 1);
+  $("shop").appendChild(b);
+  shopEls.push(b);
+});
+
+function render() {
+  const s = state;
+  $("coins").textContent = `💰 ${F(s.Coins)} (+${F(s.Income)}/s)`;
+  $("lemons").textContent = `🍋 ${F(s.Lemons)} (+${F(s.LemonRate)}/s)`;
+  $("ducks").textContent = `🦆 ${s.Total}/${s.Slots}`;
+  const st = Config.Stage(s.Stage);
+  $("stage").textContent = `${st.Name} (${st.SellPrice}c/lemon)`;
+  $("reb").textContent = `🔄 x${Config.RebirthMult(s.Rebirths).toFixed(2)}`;
+  $("lemon").textContent = `🍋 Pick Lemons (+${st.PickAmount})`;
+
+  const next = s.Stage + 1;
+  if (next <= Config.StageNames.length) {
+    const c = Config.Stage(next).Cost;
+    $("upgrade").textContent = `⬆ ${Config.StageNames[next - 1]} (${F(c)})`;
+    $("upgrade").disabled = s.Coins < c;
+  } else { $("upgrade").textContent = "MAX Lemon Stage!"; $("upgrade").disabled = true; }
+
+  const rc = Config.RebirthCost(s.Rebirths);
+  $("rebirth").textContent = `🔄 Rebirth #${s.Rebirths + 1} (${F(rc)}) → x${Config.RebirthMult(s.Rebirths + 1).toFixed(2)}`;
+  $("rebirth").disabled = s.Coins < rc;
+
+  shopEls.forEach((b, i) => {
+    const cost = Config.DuckCost(i + 1);
+    b.innerHTML = `<span><b>${Config.DuckNames[i]}</b><small>+${F(Config.DuckIncome(i + 1))}/s · owned ${s.Ducks[i]}</small></span><span>${F(cost)}</span>`;
+    b.disabled = s.Coins < cost || s.Total >= s.Slots;
+  });
+
+  // pond (only rebuild when duck counts change)
+  const key = s.Ducks.join(",");
+  if (render.key !== key) {
+    render.key = key;
+    const pond = $("pond"); pond.innerHTML = "";
+    let n = 0;
+    s.Ducks.forEach((cnt, i) => {
+      for (let k = 0; k < cnt; k++) {
+        const d = document.createElement("div");
+        d.className = "duck"; d.textContent = "🦆";
+        d.style.fontSize = (24 + i * 1.2) + "px";
+        d.style.filter = `hue-rotate(${COLORS[i] - 50}deg) saturate(1.3)`;
+        d.style.animationDelay = (n++ % 10) * 0.2 + "s";
+        d.title = Config.DuckNames[i];
+        pond.appendChild(d);
       }
-    };
+    });
+  }
+}
 
-    function renderDuckShop(userCoins, userDucks) {
-      const shop = document.getElementById("duck-shop");
-      shop.innerHTML = "";
-      // Render first 20 ducks for UI efficiency
-      for (let i = 1; i <= 20; i++) {
-        const cost = Config.DuckCost(i);
-        const name = Config.DuckNames[i - 1] || `Duck #${i}`;
-        const count = userDucks[i - 1] || 0;
+function renderBoard(m) {
+  $("board").innerHTML = "";
+  m.rows.forEach((r) => { const li = document.createElement("li"); li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; $("board").appendChild(li); });
+  $("online").innerHTML = "";
+  m.players.forEach((p) => { const li = document.createElement("li"); li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; $("online").appendChild(li); });
+}
 
-        const div = document.createElement("div");
-        div.className = "item-card";
-        div.innerHTML = `
-          <div><strong>${name}</strong></div>
-          <div style="font-size: 0.8rem; color: #aaa;">Owned: ${count}</div>
-          <div style="font-size: 0.8rem; margin: 4px 0;">Cost: ${Config.Format(cost)}</div>
-          <button onclick="sendAct('BuyDuck', ${i})" ${userCoins < cost ? "disabled" : ""}>Buy</button>
-        `;
-        shop.appendChild(div);
-      }
-    }
-
-    function sendAct(action, arg) {
-      ws.send(JSON.stringify({ t: "act", a: action, arg }));
-    }
-
-    function sendChat() {
-      const input = document.getElementById("chat-input");
-      if (input.value.trim()) {
-        ws.send(JSON.stringify({ t: "chat", msg: input.value.trim() }));
-        input.value = "";
-      }
-    }
-
-    function addChat(name, msg) {
-      const box = document.getElementById("chat-box");
-      const div = document.createElement("div");
-      div.className = "chat-msg";
-      div.innerHTML = `<span class="chat-name">${name}:</span> ${msg}`;
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function showTab(tab) {
-      document.getElementById("tab-ducks").style.display = tab === "ducks" ? "block" : "none";
-      document.getElementById("tab-upgrades").style.display = tab === "upgrades" ? "block" : "none";
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      event.target.classList.add("active");
-    }
-
-    function loginAdmin() {
-      const code = document.getElementById("admin-code-input").value;
-      ws.send(JSON.stringify({ t: "admin_login", code }));
-    }
-  </script>
+function addChat(name, msg) {
+  const div = document.createElement("div");
+  const b = document.createElement("b"); b.textContent = name + ": ";
+  div.appendChild(b); div.appendChild(document.createTextNode(msg));
+  const log = $("chatlog"); log.appendChild(div); log.scrollTop = log.scrollHeight;
+  while (log.children.length > 80) log.removeChild(log.firstChild);
+}
+$("chatin").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.value.trim()) { ws.send(JSON.stringify({ t: "chat", msg: e.target.value })); e.target.value = ""; }
+});
+</script>
+<script src="admin1.js"></script>
 </body>
 </html>
