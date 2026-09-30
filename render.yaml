@@ -1,0 +1,17 @@
+# Render Blueprint: lets you deploy with "New > Blueprint" in one click.
+services:
+  - type: web
+    name: duck-tycoon
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ADMIN_CODE
+        sync: false        # you type the value in the Render dashboard
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
