@@ -1,6 +1,5 @@
 // public/config.js
 (function (exports) {
-  // Generates 100 unique ducks across 10 distinct tiers (10 ducks per tier)
   const TIER_PREFIXES = [
     "Common", "Uncommon", "Rare", "Epic", "Legendary",
     "Mythic", "Divine", "Cosmic", "Transcendent", "Omnipotent"
@@ -10,24 +9,26 @@
     "Ninja Duck", "Cyber Duck", "Golden Duck", "Alien Duck", "Quantum Duck"
   ];
 
+  // Dynamically generate 1,000 unique duck types (100 variations per rarity tier)
   exports.DuckNames = [];
   for (let t = 0; t < 10; t++) {
-    for (let d = 0; d < 10; d++) {
-      exports.DuckNames.push(`${TIER_PREFIXES[t]} ${DUCK_TYPES[d]} (v${d + 1})`);
+    for (let sub = 1; sub <= 100; sub++) {
+      const typeIndex = (sub - 1) % DUCK_TYPES.length;
+      exports.DuckNames.push(`${TIER_PREFIXES[t]} ${DUCK_TYPES[typeIndex]} Mk.${sub}`);
     }
   }
 
   exports.DuckIncome = function (tier) {
-    // Multiplier scales exponentially across all 100 ducks
-    return Math.pow(2.8, tier - 1);
+    // Smooth exponential scaling up through tier 1000
+    return Math.pow(1.15, tier - 1);
   };
 
   exports.DuckCost = function (tier) {
-    return Math.floor(10 * Math.pow(3.2, tier - 1));
+    return Math.floor(10 * Math.pow(1.18, tier - 1));
   };
 
   exports.MaxSlots = function (stage) {
-    return 10 + stage * 3;
+    return 20 + stage * 5;
   };
 
   // 25 Lemon Business Upgrades
@@ -58,7 +59,6 @@
     return Math.floor(1e6 * Math.pow(8, rebirths));
   };
 
-  // ---- World Configurations ----
   exports.Worlds = {
     1: {
       name: "Classic Pond",
@@ -76,17 +76,18 @@
     },
     3: {
       name: "Galactic Duck Nebula",
-      unlockRebirths: 5, // Requires 5 Rebirths to unlock
-      coinMult: 25,      // Permanent 25x coins in World 3
-      lemonMult: 10,     // Permanent 10x lemons in World 3
+      unlockRebirths: 5,
+      coinMult: 25,
+      lemonMult: 10,
       themeColor: "#9C27B0"
     }
   };
 
-  exports.OfflineCapSeconds = 86400; // 24 hours
+  exports.OfflineCapSeconds = 86400;
   exports.OfflineRate = 0.5;
 
   exports.Format = function (num) {
+    if (num >= 1e21) return (num / 1e21).toFixed(2) + "Sx";
     if (num >= 1e18) return (num / 1e18).toFixed(2) + "Qi";
     if (num >= 1e15) return (num / 1e15).toFixed(2) + "Qa";
     if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
