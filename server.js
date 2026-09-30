@@ -31,12 +31,12 @@ function flushAndExit() {
 process.on("SIGINT", flushAndExit);
 process.on("SIGTERM", flushAndExit);
 
-// ---- game logic ---------------------------------------------------------
-const NUM_DUCKS = Config.DuckNames.length; // 1000
+const NUM_DUCKS = Config.DuckNames.length;
 
 const newData = () => ({
-  Coins: 100, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
-  Stage: 1, Rebirths: 0, Earned: 0, World: 1,
+  Coins: 500, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
+  Stage: 1, Rebirths: 0, SuperRebirths: 0, UltraRebirths: 0,
+  Earned: 0, World: 1,
 });
 
 function ensureValidDucks(d) {
@@ -65,7 +65,7 @@ const incomePerSec = (d) => {
       sum += d.Ducks[i] * Config.DuckIncome(i + 1);
     }
   }
-  return sum * Config.RebirthMult(d.Rebirths) * worldMult(d);
+  return sum * Config.RebirthMult(d.Rebirths, d.SuperRebirths || 0, d.UltraRebirths || 0) * worldMult(d);
 };
 
 function addCoins(d, n) { d.Coins += n; d.Earned += n; }
@@ -78,15 +78,17 @@ function sanitizeName(s) {
 function handleAction(rec, action, arg) {
   const d = rec.d;
   if (!d.World) d.World = 1;
+  if (d.SuperRebirths === undefined) d.SuperRebirths = 0;
+  if (d.UltraRebirths === undefined) d.UltraRebirths = 0;
   ensureValidDucks(d);
 
   if (action === "PickLemons") {
     const now = Date.now();
-    if (now - (rec.lastPick || 0) < 100) return;
+    if (now - (rec.lastPick || 0) < 50) return;
     rec.lastPick = now;
     d.Lemons += Config.Stage(d.Stage).PickAmount * worldLemonMult(d) * admin.mult("lemons");
   } else if (action === "SellLemons") {
-    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths) * worldMult(d) * admin.mult("coins"));
+    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths, d.SuperRebirths, d.UltraRebirths) * worldMult(d) * admin.mult("coins"));
     d.Lemons = 0;
   } else if (action === "BuyDuck") {
     const tier = Number(arg);
@@ -107,8 +109,33 @@ function handleAction(rec, action, arg) {
     if (d.Coins < Config.RebirthCost(d.Rebirths)) return;
     const fresh = newData();
     fresh.Rebirths = d.Rebirths + 1;
+    fresh.SuperRebirths = d.SuperRebirths;
+    fresh.UltraRebirths = d.UltraRebirths;
     fresh.Earned = d.Earned;
     fresh.World = d.World;
+    fresh.Ducks[0] = fresh.Rebirths;
+    rec.d = saves[rec.token].d = fresh;
+  } else if (action === "SuperRebirth") {
+    const cost = Config.SuperRebirthCost(d.SuperRebirths);
+    if (d.Rebirths < cost) return;
+    const fresh = newData();
+    fresh.Rebirths = 0;
+    fresh.SuperRebirths = d.SuperRebirths + 1;
+    fresh.UltraRebirths = d.UltraRebirths;
+    fresh.Earned = d.Earned;
+    fresh.World = d.World;
+    fresh.Ducks[0] = 5; // Bonus starter ducks for Super Rebirth
+    rec.d = saves[rec.token].d = fresh;
+  } else if (action === "UltraRebirth") {
+    const cost = Config.UltraRebirthCost(d.UltraRebirths);
+    if (d.SuperRebirths < cost) return;
+    const fresh = newData();
+    fresh.Rebirths = 0;
+    fresh.SuperRebirths = 0;
+    fresh.UltraRebirths = d.UltraRebirths + 1;
+    fresh.Earned = d.Earned;
+    fresh.World = d.World;
+    fresh.Ducks[0] = 25; // Massive starter bonus
     rec.d = saves[rec.token].d = fresh;
   } else if (action === "SwitchWorld") {
     const targetWorld = Number(arg);
@@ -120,7 +147,6 @@ function handleAction(rec, action, arg) {
   dirty = true;
 }
 
-// ---- networking ---------------------------------------------------------
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]);
@@ -135,7 +161,6 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// Expanded maxPayload to 64KB for 1000 duck data arrays
 const wss = new WebSocketServer({ server, maxPayload: 65536 });
 const online = new Map();
 
@@ -147,7 +172,8 @@ function stateFor(rec) {
   ensureValidDucks(d);
   return {
     t: "state", Coins: d.Coins, Lemons: d.Lemons, Ducks: d.Ducks, Stage: d.Stage,
-    Rebirths: d.Rebirths, World: d.World || 1, Income: incomePerSec(d),
+    Rebirths: d.Rebirths, SuperRebirths: d.SuperRebirths || 0, UltraRebirths: d.UltraRebirths || 0,
+    World: d.World || 1, Income: incomePerSec(d),
     LemonRate: Config.Stage(d.Stage).LemonsPerSec * worldLemonMult(d),
     Slots: Config.MaxSlots(d.Stage), Total: totalDucks(d), Buffs: admin.snapshot(),
   };
@@ -155,11 +181,11 @@ function stateFor(rec) {
 
 function boardMsg() {
   const rows = Object.values(saves)
-    .sort((a, b) => b.d.Rebirths - a.d.Rebirths || b.d.Earned - a.d.Earned)
+    .sort((a, b) => (b.d.UltraRebirths || 0) - (a.d.UltraRebirths || 0) || (b.d.SuperRebirths || 0) - (a.d.SuperRebirths || 0) || b.d.Rebirths - a.d.Rebirths)
     .slice(0, 10)
-    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, earned: s.d.Earned, world: s.d.World || 1 }));
+    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, superRebirths: s.d.SuperRebirths || 0, ultraRebirths: s.d.UltraRebirths || 0 }));
   const players = [...online.values()].map((r) => ({
-    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths, world: r.d.World || 1,
+    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths,
   }));
   return { t: "board", rows, players };
 }
@@ -204,11 +230,9 @@ wss.on("connection", (ws, req) => {
       const r = admin.tryLogin(ip, m.code);
       rec.admin = r.ok;
       send(ws, r.ok ? { t: "admin_ok", msg: "login" } : { t: "admin_err", msg: r.msg });
-      if (r.ok) console.log("Admin login:", rec.name);
     } else if (m.t === "admin") {
       if (!rec.admin) return send(ws, { t: "admin_err", msg: "Not authorised." });
       const result = admin.handle(m, { online, Config, addCoins, totalDucks, broadcast, saves });
-      console.log("Admin cmd:", rec.name, m.cmd);
       send(ws, { t: "admin_ok", msg: result });
       for (const [w, r] of online) send(w, stateFor(r));
       dirty = true;
@@ -243,4 +267,4 @@ setInterval(() => {
 
 setInterval(() => broadcast(boardMsg()), 3000);
 
-server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));e.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
