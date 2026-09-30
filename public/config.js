@@ -1,49 +1,83 @@
-// Shared by server (Node) and browser.
-(function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.Config = factory();
-})(typeof self !== "undefined" ? self : this, function () {
-  const Config = {};
-
-  Config.DuckNames = [
-    "Common Duck","Yellow Duckling","Puddle Duck","Rubber Duck","Mallard","Pond Duck",
-    "Bread Lover","Lemon Duck","Golden Duck","Crystal Duck","Ruby Duck","Emerald Duck",
-    "Diamond Duck","Neon Duck","Cyber Duck","Lava Duck","Frost Duck","Void Duck",
-    "Celestial Duck","Cosmic Duck",
+// public/config.js
+(function (exports) {
+  exports.DuckNames = [
+    "Yellow Rubber Duck",
+    "Lemon Duck",
+    "Mallard Duck",
+    "Sailor Duck",
+    "Wizard Duck",
+    "Ninja Duck",
+    "Cyber Duck",
+    "Golden Duck",
+    "Cosmic Duck"
   ];
 
-  Config.StageNames = [
-    "Lemon Stand","Lemonade Cart","Lemon Grove","Juice Bar","Lemonade Shop",
-    "Citrus Farm","Lemon Factory","Zest Industries","Lemon Mega Mart","Lemon Empire",
-    "Lemon Skyscraper","Lemon Space Station","Lemon Planet","Lemon Galaxy","Lemon Galaxy Corp",
-  ];
-
-  Config.BaseSlots = 10;
-  Config.SlotsPerStage = 5; // 10 + 5*(stage-1) = 80 at final stage
-  Config.OfflineCapSeconds = 8 * 3600;
-  Config.OfflineRate = 0.5;
-
-  Config.DuckCost = (i) => Math.floor(50 * Math.pow(3.2, i - 1));
-  Config.DuckIncome = (i) => Math.floor(Math.pow(2.6, i - 1) * 10) / 10;
-
-  Config.Stage = (i) => ({
-    Name: Config.StageNames[i - 1],
-    Cost: i === 1 ? 0 : Math.floor(200 * Math.pow(6, i - 2)),
-    LemonsPerSec: Math.floor(Math.pow(2.4, i - 1) * 10) / 10,
-    SellPrice: Math.floor(2 * Math.pow(1.7, i - 1) * 100) / 100,
-    PickAmount: 1 + (i - 1) * 3,
-  });
-
-  Config.MaxSlots = (stage) => Config.BaseSlots + Config.SlotsPerStage * (stage - 1);
-  Config.RebirthCost = (r) => Math.floor(5e6 * Math.pow(8, r));
-  Config.RebirthMult = (r) => 1 + 0.75 * r;
-
-  const suffixes = ["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","Dc","Ud","Dd","Td"];
-  Config.Format = (n) => {
-    if (n < 1000) return String(Math.floor(n * 10) / 10);
-    const idx = Math.min(Math.floor(Math.log10(n) / 3), suffixes.length - 1);
-    return (n / Math.pow(10, idx * 3)).toFixed(2) + suffixes[idx];
+  exports.DuckIncome = function (tier) {
+    return Math.pow(4, tier - 1);
   };
 
-  return Config;
-});
+  exports.DuckCost = function (tier) {
+    return Math.floor(10 * Math.pow(5, tier - 1));
+  };
+
+  exports.MaxSlots = function (stage) {
+    return 5 + stage * 2;
+  };
+
+  exports.StageNames = [
+    "Lemonade Stand",
+    "Lemon Grove",
+    "Lemon Orchard",
+    "Lemonade Factory",
+    "Citrus Empire",
+    "Golden Grove"
+  ];
+
+  exports.Stage = function (stage) {
+    const s = Math.max(1, Math.min(stage, exports.StageNames.length));
+    return {
+      Name: exports.StageNames[s - 1],
+      PickAmount: s * 2,
+      SellPrice: Math.pow(2, s - 1),
+      LemonsPerSec: s * 3,
+      Cost: Math.floor(100 * Math.pow(4, s - 1))
+    };
+  };
+
+  exports.RebirthMult = function (rebirths) {
+    return 1 + rebirths * 1.5;
+  };
+
+  exports.RebirthCost = function (rebirths) {
+    return Math.floor(1e6 * Math.pow(10, rebirths));
+  };
+
+  // ---- NEW: World Configurations ----
+  exports.Worlds = {
+    1: {
+      name: "Classic Pond",
+      unlockRebirths: 0,
+      coinMult: 1,
+      lemonMult: 1,
+      themeColor: "#4CAF50"
+    },
+    2: {
+      name: "Golden Duck Realm",
+      unlockRebirths: 1, // Requires at least 1 Rebirth to unlock
+      coinMult: 3,       // Permanent 3x coins in World 2
+      lemonMult: 2,      // Permanent 2x lemons in World 2
+      themeColor: "#FFD700"
+    }
+  };
+
+  exports.OfflineCapSeconds = 86400; // 24 hours
+  exports.OfflineRate = 0.5;
+
+  exports.Format = function (num) {
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + "B";
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + "K";
+    return Math.floor(num).toLocaleString();
+  };
+})(typeof exports === "undefined" ? (this.Config = {}) : exports);
