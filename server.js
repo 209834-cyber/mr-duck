@@ -32,7 +32,7 @@ process.on("SIGINT", flushAndExit);
 process.on("SIGTERM", flushAndExit);
 
 // ---- game logic ---------------------------------------------------------
-const NUM_DUCKS = Config.DuckNames.length;
+const NUM_DUCKS = Config.DuckNames.length; // 1000
 
 const newData = () => ({
   Coins: 100, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
@@ -41,12 +41,17 @@ const newData = () => ({
 
 function ensureValidDucks(d) {
   if (!Array.isArray(d.Ducks)) d.Ducks = [];
-  while (d.Ducks.length < NUM_DUCKS) d.Ducks.push(0);
+  if (d.Ducks.length < NUM_DUCKS) {
+    const padded = new Array(NUM_DUCKS - d.Ducks.length).fill(0);
+    d.Ducks = d.Ducks.concat(padded);
+  }
 }
 
 const totalDucks = (d) => {
   ensureValidDucks(d);
-  return d.Ducks.reduce((a, b) => a + b, 0);
+  let total = 0;
+  for (let i = 0; i < d.Ducks.length; i++) total += d.Ducks[i];
+  return total;
 };
 
 const worldMult = (d) => Config.Worlds[d.World || 1]?.coinMult || 1;
@@ -54,9 +59,13 @@ const worldLemonMult = (d) => Config.Worlds[d.World || 1]?.lemonMult || 1;
 
 const incomePerSec = (d) => {
   ensureValidDucks(d);
-  return d.Ducks.reduce((sum, n, i) => sum + n * Config.DuckIncome(i + 1), 0) *
-    Config.RebirthMult(d.Rebirths) *
-    worldMult(d);
+  let sum = 0;
+  for (let i = 0; i < NUM_DUCKS; i++) {
+    if (d.Ducks[i] > 0) {
+      sum += d.Ducks[i] * Config.DuckIncome(i + 1);
+    }
+  }
+  return sum * Config.RebirthMult(d.Rebirths) * worldMult(d);
 };
 
 function addCoins(d, n) { d.Coins += n; d.Earned += n; }
@@ -126,7 +135,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server, maxPayload: 4096 });
+// Expanded maxPayload to 64KB for 1000 duck data arrays
+const wss = new WebSocketServer({ server, maxPayload: 65536 });
 const online = new Map();
 
 const send = (ws, obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
@@ -220,7 +230,6 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-// income tick
 setInterval(() => {
   for (const [ws, rec] of online) {
     const d = rec.d;
