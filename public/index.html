@@ -1,194 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Duck & Lemon Tycoon</title>
-<style>
-  :root { --bg:#7ed6f4; --panel:#fff8d6; --dark:#22303c; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: "Trebuchet MS", system-ui, sans-serif; background: linear-gradient(#bfeaff,#7ed6f4); color:var(--dark); min-height:100vh; }
-  #login { position:fixed; inset:0; background:rgba(20,30,40,.85); display:flex; align-items:center; justify-content:center; z-index:10; }
-  #login .box { background:var(--panel); padding:28px; border-radius:16px; text-align:center; width:min(90vw,340px); }
-  #login input { width:100%; padding:10px; font-size:18px; border-radius:8px; border:2px solid #cbb; margin:12px 0; }
-  button { font-family:inherit; font-weight:bold; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; color:#fff; font-size:15px; }
-  button:disabled { opacity:.45; cursor:not-allowed; }
-  button:active:not(:disabled) { transform:scale(.97); }
-  header { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding:10px; background:var(--dark); color:#fff; font-weight:bold; }
-  header span { background:#34495e; padding:6px 12px; border-radius:20px; }
-  main { display:grid; grid-template-columns: 260px 1fr 300px; gap:12px; padding:12px; max-width:1300px; margin:auto; }
-  @media (max-width:950px){ main { grid-template-columns:1fr; } }
-  .panel { background:var(--panel); border-radius:14px; padding:12px; box-shadow:0 3px 0 rgba(0,0,0,.15); }
-  .panel h3 { margin:0 0 8px; }
-  .col { display:flex; flex-direction:column; gap:12px; }
-  .btn-col { display:flex; flex-direction:column; gap:8px; }
-  #lemon { background:#e6b800; font-size:20px; padding:16px; }
-  #sell { background:#3aa655; }
-  #upgrade { background:#4a6fdc; }
-  #rebirth { background:#aa3cc8; }
-  #pond { background: radial-gradient(ellipse at center,#5cc3ee,#3aa0d0); border-radius:14px; min-height:320px; padding:12px; display:grid; grid-template-columns:repeat(10,1fr); gap:4px; align-content:start; box-shadow: inset 0 0 30px rgba(0,0,0,.25); }
-  .duck { text-align:center; line-height:1; animation: bob 2s ease-in-out infinite; user-select:none; }
-  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-  #shop { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
-  .shopitem { display:flex; justify-content:space-between; align-items:center; text-align:left; color:#111; border:2px solid rgba(0,0,0,.15); }
-  .shopitem small { display:block; font-weight:normal; opacity:.75; }
-  #chatlog { height:150px; overflow-y:auto; background:#fff; border-radius:8px; padding:6px; font-size:13px; }
-  #chatin { width:100%; padding:8px; border-radius:8px; border:2px solid #cbb; margin-top:6px; }
-  ol,ul { margin:0; padding-left:20px; font-size:14px; }
-  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--dark); color:#fff; padding:10px 18px; border-radius:20px; display:none; z-index:20; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duck & Lemon Tycoon</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a1a; color: #fff; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    button { background: #FFC107; border: none; padding: 8px 16px; font-weight: bold; cursor: pointer; border-radius: 4px; margin: 2px; }
+    button:hover { background: #FFD54F; }
+    .admin-panel { background: #3a1c1c; border: 1px solid #ff4444; }
+    .world-btn { background: #2196F3; color: white; }
+    input { padding: 8px; margin: 2px; border-radius: 4px; border: 1px solid #555; background: #333; color: #fff; }
+  </style>
 </head>
 <body>
-<div id="login"><div class="box">
-  <h1>🦆 Duck & Lemon Tycoon 🍋</h1>
-  <p>Pick a name to join the pond</p>
-  <input id="nameIn" maxlength="16" placeholder="Your name">
-  <button id="joinBtn" style="background:#e6b800;width:100%">Play!</button>
-</div></div>
+  <div class="container">
+    <h1>🦆 Duck & Lemon Tycoon</h1>
 
-<header>
-  <span id="coins">💰 0</span><span id="lemons">🍋 0</span>
-  <span id="ducks">🦆 0/10</span><span id="stage">Lemon Stand</span><span id="reb">🔄 x1</span>
-</header>
-
-<main>
-  <div class="col">
-    <div class="panel btn-col">
-      <h3>Lemon Business</h3>
-      <button id="lemon">🍋 Pick Lemons</button>
-      <button id="sell">💰 Sell Lemons</button>
-      <button id="upgrade">Upgrade</button>
-      <button id="rebirth">Rebirth</button>
+    <!-- Stats Dashboard -->
+    <div class="card">
+      <h2>Stats</h2>
+      <p>Coins: <span id="coins">0</span> | Lemons: <span id="lemons">0</span></p>
+      <p>Income: <span id="income">0</span>/sec | Current Stage: <span id="stage">1</span></p>
+      <p>Rebirths: <span id="rebirths">0</span> | Current World: <span id="current-world">1</span></p>
+      <button onclick="sendAct('PickLemons')">🍋 Pick Lemons</button>
+      <button onclick="sendAct('SellLemons')">💰 Sell Lemons</button>
+      <button onclick="sendAct('UpgradeLemon')">⬆️️ Upgrade Business</button>
+      <button onclick="sendAct('Rebirth')">🔄 Rebirth</button>
     </div>
-    <div class="panel"><h3>Online 🌐</h3><ul id="online"></ul></div>
+
+    <!-- World Selector -->
+    <div class="card">
+      <h2>🌐 Travel Worlds</h2>
+      <button class="world-btn" onclick="sendAct('SwitchWorld', 1)">World 1: Classic Pond</button>
+      <button class="world-btn" onclick="sendAct('SwitchWorld', 2)">World 2: Golden Realm (Req: 1 Rebirth)</button>
+      <button class="world-btn" onclick="sendAct('SwitchWorld', 3)">World 3: Galactic Nebula (Req: 5 Rebirths)</button>
+    </div>
+
+    <!-- Admin Login & Command Controls -->
+    <div class="card admin-panel">
+      <h2>⚡ Admin Controls</h2>
+      <div id="admin-login-box">
+        <input type="password" id="admin-code-input" placeholder="Enter Admin Code">
+        <button onclick="loginAdmin()">Login as Admin</button>
+      </div>
+
+      <div id="admin-controls-box" style="display: none; margin-top: 10px;">
+        <p style="color: #ff8888;">Logged in as Admin!</p>
+        
+        <div>
+          <h3>Teleport All Players</h3>
+          <button onclick="adminTeleportAll(1)">Teleport All -> World 1</button>
+          <button onclick="adminTeleportAll(2)">Teleport All -> World 2</button>
+          <button onclick="adminTeleportAll(3)">Teleport All -> World 3</button>
+        </div>
+
+        <hr style="border-color: #555;">
+
+        <div>
+          <h3>Global Events & Buffs</h3>
+          <button onclick="adminLuckyHour(5, 10)">x5 Lucky Hour (10m)</button>
+          <button onclick="adminDuckRain()">🌧️ Trigger Duck Rain</button>
+          <button onclick="adminClearBuffs()">Clear Buffs</button>
+        </div>
+
+        <hr style="border-color: #555;">
+
+        <div>
+          <h3>Player Gifts & Edits</h3>
+          <input type="number" id="gift-coin-amt" placeholder="Coin Amount" value="1000000">
+          <button onclick="adminGiveCoins(document.getElementById('gift-coin-amt').value)">Give Coins to All</button>
+
+          <br><br>
+
+          <input type="number" id="duck-tier-input" placeholder="Duck Tier (1-1000)" min="1" max="1000">
+          <button onclick="adminGiftDuck(document.getElementById('duck-tier-input').value)">Gift Duck Tier</button>
+
+          <br><br>
+
+          <input type="number" id="rebirth-input" placeholder="Set Rebirths">
+          <button onclick="adminSetRebirths(document.getElementById('rebirth-input').value)">Set All Player Rebirths</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="col">
-    <div class="panel"><h3>Your Pond</h3><div id="pond"></div></div>
-    <div class="panel"><h3>Duck Shop</h3><div id="shop"></div></div>
-  </div>
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // Connection handling & socket message setup
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${location.host}`);
+    window.gameSocket = ws;
 
-  <div class="col">
-    <div class="panel"><h3>🏆 Leaderboard</h3><ol id="board"></ol></div>
-    <div class="panel"><h3>Chat</h3><div id="chatlog"></div>
-      <input id="chatin" maxlength="120" placeholder="Say something and press Enter"></div>
-  </div>
-</main>
-<div id="toast"></div>
+    let token = localStorage.getItem("duck_tycoon_token");
+    if (!token) {
+      token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem("duck_tycoon_token", token);
+    }
 
-<script src="config.js"></script>
-<script>
-const $ = (id) => document.getElementById(id);
-const F = Config.Format;
-const COLORS = [55,50,200,45,120,190,30,60,42,180,350,150,185,170,200,20,195,270,0,290]; // hue per tier
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ t: "login", token, name: "Player" }));
+    };
 
-let token = localStorage.getItem("duckToken");
-if (!token) { token = crypto.randomUUID() + crypto.randomUUID(); localStorage.setItem("duckToken", token); }
-$("nameIn").value = localStorage.getItem("duckName") || "";
-
-let ws, state = null;
-
-function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 4000); }
-
-function connect() {
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-  ws.onopen = () => ws.send(JSON.stringify({ t: "login", token, name: $("nameIn").value }));
-  ws.onclose = () => { toast("Disconnected. Reconnecting..."); setTimeout(connect, 2000); };
-  ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
-    if (window.onExtraMsg) window.onExtraMsg(m);
-    if (m.t === "welcome") { $("login").style.display = "none"; if (m.offline > 0) toast("Welcome back! Your ducks earned " + F(m.offline) + " coins while you were away."); }
-    else if (m.t === "state") { state = m; render(); }
-    else if (m.t === "board") renderBoard(m);
-    else if (m.t === "chat") addChat(m.name, m.msg);
-    else if (m.t === "err") toast(m.msg);
-  };
-}
-$("joinBtn").onclick = () => { localStorage.setItem("duckName", $("nameIn").value); connect(); };
-$("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
-
-const act = (a, arg) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "act", a, arg }));
-$("lemon").onclick = () => act("PickLemons");
-$("sell").onclick = () => act("SellLemons");
-$("upgrade").onclick = () => act("UpgradeLemon");
-$("rebirth").onclick = () => { if (confirm("Rebirth resets your coins, lemons, ducks and lemon stage for a permanent multiplier. Continue?")) act("Rebirth"); };
-
-// shop
-const shopEls = [];
-Config.DuckNames.forEach((name, i) => {
-  const b = document.createElement("button");
-  b.className = "shopitem";
-  b.style.background = `hsl(${COLORS[i]},80%,75%)`;
-  b.onclick = () => act("BuyDuck", i + 1);
-  $("shop").appendChild(b);
-  shopEls.push(b);
-});
-
-function render() {
-  const s = state;
-  $("coins").textContent = `💰 ${F(s.Coins)} (+${F(s.Income)}/s)`;
-  $("lemons").textContent = `🍋 ${F(s.Lemons)} (+${F(s.LemonRate)}/s)`;
-  $("ducks").textContent = `🦆 ${s.Total}/${s.Slots}`;
-  const st = Config.Stage(s.Stage);
-  $("stage").textContent = `${st.Name} (${st.SellPrice}c/lemon)`;
-  $("reb").textContent = `🔄 x${Config.RebirthMult(s.Rebirths).toFixed(2)}`;
-  $("lemon").textContent = `🍋 Pick Lemons (+${st.PickAmount})`;
-
-  const next = s.Stage + 1;
-  if (next <= Config.StageNames.length) {
-    const c = Config.Stage(next).Cost;
-    $("upgrade").textContent = `⬆ ${Config.StageNames[next - 1]} (${F(c)})`;
-    $("upgrade").disabled = s.Coins < c;
-  } else { $("upgrade").textContent = "MAX Lemon Stage!"; $("upgrade").disabled = true; }
-
-  const rc = Config.RebirthCost(s.Rebirths);
-  $("rebirth").textContent = `🔄 Rebirth #${s.Rebirths + 1} (${F(rc)}) → x${Config.RebirthMult(s.Rebirths + 1).toFixed(2)}`;
-  $("rebirth").disabled = s.Coins < rc;
-
-  shopEls.forEach((b, i) => {
-    const cost = Config.DuckCost(i + 1);
-    b.innerHTML = `<span><b>${Config.DuckNames[i]}</b><small>+${F(Config.DuckIncome(i + 1))}/s · owned ${s.Ducks[i]}</small></span><span>${F(cost)}</span>`;
-    b.disabled = s.Coins < cost || s.Total >= s.Slots;
-  });
-
-  // pond (only rebuild when duck counts change)
-  const key = s.Ducks.join(",");
-  if (render.key !== key) {
-    render.key = key;
-    const pond = $("pond"); pond.innerHTML = "";
-    let n = 0;
-    s.Ducks.forEach((cnt, i) => {
-      for (let k = 0; k < cnt; k++) {
-        const d = document.createElement("div");
-        d.className = "duck"; d.textContent = "🦆";
-        d.style.fontSize = (24 + i * 1.2) + "px";
-        d.style.filter = `hue-rotate(${COLORS[i] - 50}deg) saturate(1.3)`;
-        d.style.animationDelay = (n++ % 10) * 0.2 + "s";
-        d.title = Config.DuckNames[i];
-        pond.appendChild(d);
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.t === "state") {
+        document.getElementById("coins").innerText = Config.Format(msg.Coins);
+        document.getElementById("lemons").innerText = Config.Format(msg.Lemons);
+        document.getElementById("income").innerText = Config.Format(msg.Income);
+        document.getElementById("stage").innerText = msg.Stage;
+        document.getElementById("rebirths").innerText = msg.Rebirths;
+        document.getElementById("current-world").innerText = msg.World;
+      } else if (msg.t === "admin_ok") {
+        document.getElementById("admin-login-box").style.display = "none";
+        document.getElementById("admin-controls-box").style.display = "block";
+      } else if (msg.t === "admin_err") {
+        alert("Admin error: " + msg.msg);
+      } else if (msg.t === "banner") {
+        alert(msg.msg);
       }
-    });
-  }
-}
+    };
 
-function renderBoard(m) {
-  $("board").innerHTML = "";
-  m.rows.forEach((r) => { const li = document.createElement("li"); li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; $("board").appendChild(li); });
-  $("online").innerHTML = "";
-  m.players.forEach((p) => { const li = document.createElement("li"); li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; $("online").appendChild(li); });
-}
+    function sendAct(action, arg) {
+      ws.send(JSON.stringify({ t: "act", a: action, arg }));
+    }
 
-function addChat(name, msg) {
-  const div = document.createElement("div");
-  const b = document.createElement("b"); b.textContent = name + ": ";
-  div.appendChild(b); div.appendChild(document.createTextNode(msg));
-  const log = $("chatlog"); log.appendChild(div); log.scrollTop = log.scrollHeight;
-  while (log.children.length > 80) log.removeChild(log.firstChild);
-}
-$("chatin").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.target.value.trim()) { ws.send(JSON.stringify({ t: "chat", msg: e.target.value })); e.target.value = ""; }
-});
-</script>
+    function loginAdmin() {
+      const code = document.getElementById("admin-code-input").value;
+      ws.send(JSON.stringify({ t: "admin_login", code }));
+    }
+  </script>
+</body>
+</html>
 <script src="admin1.js"></script>
 </body>
 </html>
