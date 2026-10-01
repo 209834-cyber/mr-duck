@@ -242,4 +242,4 @@ setInterval(() => {
 
 setInterval(() => broadcast(boardMsg()), 3000);
 
-server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`)); on http://localhost:${PORT}`));e.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
