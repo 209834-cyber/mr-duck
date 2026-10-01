@@ -18,10 +18,12 @@
     }
   }
 
+  // FAST PROGRESSION: 1.35x multiplier per tier yields massive coin acceleration
   exports.DuckIncome = function (tier) {
     return Math.pow(1.35, tier - 1) * 5;
   };
 
+  // CHEAPER DUCKS: 1.10x cost growth allows buying deep into tiers fast
   exports.DuckCost = function (tier) {
     return Math.floor(10 * Math.pow(1.10, tier - 1));
   };
@@ -30,6 +32,7 @@
     return 30 + stage * 10;
   };
 
+  // 25 Business Upgrades
   exports.StageNames = [
     "Lemonade Stand", "Lemon Grove", "Lemon Orchard", "Lemonade Factory", "Citrus Empire",
     "Golden Grove", "Solar Lemon Processor", "Lunar Lemon Harvester", "Plasma Lemon Reactor", "Starlight Citrus Farm",
@@ -38,6 +41,7 @@
     "Celestial Squeeze Engine", "Chronos Lemon Vault", "Multiverse Citrus Hub", "Infinity Lemon Foundry", "Omni-Duck Citrus Matrix"
   ];
 
+  // FASTER UPGRADES: Lower cost scaling (1.8x) and higher profits
   exports.Stage = function (stage) {
     const s = Math.max(1, Math.min(stage, exports.StageNames.length));
     return {
@@ -49,27 +53,14 @@
     };
   };
 
-  // Rebirth Formula Costs & Multipliers
+  // EASY REBIRTH: Stronger boost per rebirth (5x)
+  exports.RebirthMult = function (rebirths) {
+    return 1 + rebirths * 5;
+  };
+
+  // EASY REBIRTH: Base cost only 10,000 Coins & 2x growth per level
   exports.RebirthCost = function (rebirths) {
     return Math.floor(10000 * Math.pow(2, rebirths));
-  };
-
-  exports.SuperRebirthCost = function (superRebirths) {
-    // Requires 5 standard rebirths for the first, increasing by 3 per level
-    return 5 + superRebirths * 3;
-  };
-
-  exports.UltraRebirthCost = function (ultraRebirths) {
-    // Requires 3 super rebirths for the first, increasing by 2 per level
-    return 3 + ultraRebirths * 2;
-  };
-
-  // Total income multiplier combining Rebirths, Super Rebirths, and Ultra Rebirths
-  exports.RebirthMult = function (rebirths, superRebirths = 0, ultraRebirths = 0) {
-    const baseMult = 1 + rebirths * 5;
-    const superMult = 1 + superRebirths * 50;
-    const ultraMult = 1 + ultraRebirths * 1000;
-    return baseMult * superMult * ultraMult;
   };
 
   exports.Worlds = {
