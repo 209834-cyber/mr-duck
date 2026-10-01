@@ -1,3 +1,4 @@
+// admin.js
 // Admin module: global buffs, gifts, events and moderation.
 // The secret code lives ONLY on the server (ADMIN_CODE environment variable).
 "use strict";
@@ -43,6 +44,12 @@ function tryLogin(ip, code) {
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+n) ? +n : lo));
 const cleanText = (s, n) => String(s || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, n);
+
+// Parses large inputs safely without artificial clamping limits
+function parseAmount(val, fallback = 1) {
+  const num = Number(val);
+  return (Number.isFinite(num) && num > 0) ? num : fallback;
+}
 
 function handle(m, ctx) {
   const { online, Config, addCoins, totalDucks, broadcast } = ctx;
@@ -90,27 +97,33 @@ function handle(m, ctx) {
       banner("Global buffs ended.");
       return "Buffs cleared";
 
-    // ------------------------------------------------- gifts (everyone/target)
+    // ------------------------------------------------- gifts (unlimited quantities)
     case "giveCoins": {
-      const amt = clamp(m.amount, 1, 1e15);
+      const amt = parseAmount(m.amount);
       targets.forEach((r) => addCoins(r.d, amt));
       if (!who) banner(`💸 ADMIN GIFT: everyone received ${F(amt)} coins!`);
       return `Gave ${F(amt)} coins to ${label}`;
     }
     case "giveLemons": {
-      const amt = clamp(m.amount, 1, 1e15);
+      const amt = parseAmount(m.amount);
       targets.forEach((r) => (r.d.Lemons += amt));
       if (!who) banner(`🍋 LEMON SHOWER: everyone received ${F(amt)} lemons!`);
       return `Gave ${F(amt)} lemons to ${label}`;
     }
     case "giveEggs": {
-      const amt = Math.floor(clamp(m.amount, 1, 1e9));
+      const amt = Math.floor(parseAmount(m.amount));
       targets.forEach((r) => (r.d.Eggs += amt));
       if (!who) banner(`🥚 GOLDEN EGG RAIN: everyone received ${F(amt)} Golden Eggs!`);
       return `Gave ${amt} eggs to ${label}`;
     }
-    case "giveTime": { // "time skip": income for N minutes
-      const mins = clamp(m.minutes, 1, 10080);
+    case "giveRebirths": {
+      const amt = Math.floor(parseAmount(m.amount));
+      targets.forEach((r) => (r.d.Rebirths += amt));
+      if (!who) banner(`🔄 REBIRTH BLESSING: everyone gained ${amt} rebirth level(s)!`);
+      return `Gave ${amt} rebirths to ${label}`;
+    }
+    case "giveTime": {
+      const mins = parseAmount(m.minutes);
       targets.forEach((r) => {
         addCoins(r.d, ctx.incomePerSec(r.d) * mins * 60);
         r.d.Lemons += ctx.lemonRate(r.d) * mins * 60;
@@ -120,7 +133,7 @@ function handle(m, ctx) {
     }
     case "giftDuck": {
       const tier = Math.floor(clamp(m.tier, 1, N));
-      const count = Math.floor(clamp(m.count || 1, 1, 100));
+      const count = Math.floor(parseAmount(m.count, 1));
       let n = 0;
       targets.forEach((r) => {
         for (let k = 0; k < count; k++) {
@@ -146,12 +159,6 @@ function handle(m, ctx) {
       banner("🌧️ DUCK RAIN! Free ducks fell into the pond!");
       return `Rained ${n} ducks on ${label}`;
     }
-    case "giveRebirths": {
-      const amt = Math.floor(clamp(m.amount, 1, 1000));
-      targets.forEach((r) => (r.d.Rebirths += amt));
-      if (!who) banner(`🔄 REBIRTH BLESSING: everyone gained ${amt} rebirth level(s)!`);
-      return `Gave ${amt} rebirths to ${label}`;
-    }
     case "setStage": {
       const st = Math.floor(clamp(m.stage, 1, Config.StageNames.length));
       targets.forEach((r) => { if (r.d.Stage < st) r.d.Stage = st; });
@@ -160,7 +167,7 @@ function handle(m, ctx) {
     }
     case "raffle": {
       if (!all.length) return "Nobody online.";
-      const amt = clamp(m.amount, 1, 1e15);
+      const amt = parseAmount(m.amount);
       const w = all[Math.floor(Math.random() * all.length)];
       addCoins(w.d, amt);
       banner(`🎰 RAFFLE WINNER: ${w.name} won ${F(amt)} coins!`);
