@@ -35,8 +35,7 @@ const NUM_DUCKS = Config.DuckNames.length;
 
 const newData = () => ({
   Coins: 500, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
-  Stage: 1, Rebirths: 0, SuperRebirths: 0, UltraRebirths: 0,
-  Earned: 0, World: 1,
+  Stage: 1, Rebirths: 0, Earned: 0, World: 1,
 });
 
 function ensureValidDucks(d) {
@@ -65,7 +64,7 @@ const incomePerSec = (d) => {
       sum += d.Ducks[i] * Config.DuckIncome(i + 1);
     }
   }
-  return sum * Config.RebirthMult(d.Rebirths, d.SuperRebirths || 0, d.UltraRebirths || 0) * worldMult(d);
+  return sum * Config.RebirthMult(d.Rebirths) * worldMult(d);
 };
 
 function addCoins(d, n) { d.Coins += n; d.Earned += n; }
@@ -78,8 +77,6 @@ function sanitizeName(s) {
 function handleAction(rec, action, arg) {
   const d = rec.d;
   if (!d.World) d.World = 1;
-  if (d.SuperRebirths === undefined) d.SuperRebirths = 0;
-  if (d.UltraRebirths === undefined) d.UltraRebirths = 0;
   ensureValidDucks(d);
 
   if (action === "PickLemons") {
@@ -88,7 +85,7 @@ function handleAction(rec, action, arg) {
     rec.lastPick = now;
     d.Lemons += Config.Stage(d.Stage).PickAmount * worldLemonMult(d) * admin.mult("lemons");
   } else if (action === "SellLemons") {
-    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths, d.SuperRebirths, d.UltraRebirths) * worldMult(d) * admin.mult("coins"));
+    addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths) * worldMult(d) * admin.mult("coins"));
     d.Lemons = 0;
   } else if (action === "BuyDuck") {
     const tier = Number(arg);
@@ -109,33 +106,12 @@ function handleAction(rec, action, arg) {
     if (d.Coins < Config.RebirthCost(d.Rebirths)) return;
     const fresh = newData();
     fresh.Rebirths = d.Rebirths + 1;
-    fresh.SuperRebirths = d.SuperRebirths;
-    fresh.UltraRebirths = d.UltraRebirths;
     fresh.Earned = d.Earned;
     fresh.World = d.World;
+    
+    // FASTER RE-START: Grant 1 Starter Duck per Rebirth level
     fresh.Ducks[0] = fresh.Rebirths;
-    rec.d = saves[rec.token].d = fresh;
-  } else if (action === "SuperRebirth") {
-    const cost = Config.SuperRebirthCost(d.SuperRebirths);
-    if (d.Rebirths < cost) return;
-    const fresh = newData();
-    fresh.Rebirths = 0;
-    fresh.SuperRebirths = d.SuperRebirths + 1;
-    fresh.UltraRebirths = d.UltraRebirths;
-    fresh.Earned = d.Earned;
-    fresh.World = d.World;
-    fresh.Ducks[0] = 5; // Bonus starter ducks for Super Rebirth
-    rec.d = saves[rec.token].d = fresh;
-  } else if (action === "UltraRebirth") {
-    const cost = Config.UltraRebirthCost(d.UltraRebirths);
-    if (d.SuperRebirths < cost) return;
-    const fresh = newData();
-    fresh.Rebirths = 0;
-    fresh.SuperRebirths = 0;
-    fresh.UltraRebirths = d.UltraRebirths + 1;
-    fresh.Earned = d.Earned;
-    fresh.World = d.World;
-    fresh.Ducks[0] = 25; // Massive starter bonus
+    
     rec.d = saves[rec.token].d = fresh;
   } else if (action === "SwitchWorld") {
     const targetWorld = Number(arg);
@@ -172,8 +148,7 @@ function stateFor(rec) {
   ensureValidDucks(d);
   return {
     t: "state", Coins: d.Coins, Lemons: d.Lemons, Ducks: d.Ducks, Stage: d.Stage,
-    Rebirths: d.Rebirths, SuperRebirths: d.SuperRebirths || 0, UltraRebirths: d.UltraRebirths || 0,
-    World: d.World || 1, Income: incomePerSec(d),
+    Rebirths: d.Rebirths, World: d.World || 1, Income: incomePerSec(d),
     LemonRate: Config.Stage(d.Stage).LemonsPerSec * worldLemonMult(d),
     Slots: Config.MaxSlots(d.Stage), Total: totalDucks(d), Buffs: admin.snapshot(),
   };
@@ -181,11 +156,11 @@ function stateFor(rec) {
 
 function boardMsg() {
   const rows = Object.values(saves)
-    .sort((a, b) => (b.d.UltraRebirths || 0) - (a.d.UltraRebirths || 0) || (b.d.SuperRebirths || 0) - (a.d.SuperRebirths || 0) || b.d.Rebirths - a.d.Rebirths)
+    .sort((a, b) => b.d.Rebirths - a.d.Rebirths || b.d.Earned - a.d.Earned)
     .slice(0, 10)
-    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, superRebirths: s.d.SuperRebirths || 0, ultraRebirths: s.d.UltraRebirths || 0 }));
+    .map((s) => ({ name: s.name, rebirths: s.d.Rebirths, earned: s.d.Earned, world: s.d.World || 1 }));
   const players = [...online.values()].map((r) => ({
-    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths,
+    name: r.name, ducks: totalDucks(r.d), stage: r.d.Stage, rebirths: r.d.Rebirths, world: r.d.World || 1,
   }));
   return { t: "board", rows, players };
 }
@@ -267,4 +242,4 @@ setInterval(() => {
 
 setInterval(() => broadcast(boardMsg()), 3000);
 
-server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));e.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`)); on http://localhost:${PORT}`));e.log(`Duck & Lemon Tycoon running on http://localhost:${PORT}`));
