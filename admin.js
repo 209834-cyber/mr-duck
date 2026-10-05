@@ -45,7 +45,6 @@ function tryLogin(ip, code) {
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(+n) ? +n : lo));
 const cleanText = (s, n) => String(s || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, n);
 
-// Parses large inputs safely without artificial clamping limits
 function parseAmount(val, fallback = 1) {
   const num = Number(val);
   return (Number.isFinite(num) && num > 0) ? num : fallback;
@@ -65,7 +64,7 @@ function handle(m, ctx) {
   const setBuff = (kind, x, mins) => { buffs[kind] = { mult: x, until: Date.now() + mins * 60000 }; };
 
   switch (m.cmd) {
-    // ---------------------------------------------------------- global buffs
+    // Buffs
     case "coinBoost": case "lemonBoost": case "eggBoost": {
       const kind = { coinBoost: "coins", lemonBoost: "lemons", eggBoost: "eggs" }[m.cmd];
       const x = clamp(m.mult, 1, 1000), mins = clamp(m.minutes, 1, 1440);
@@ -97,7 +96,7 @@ function handle(m, ctx) {
       banner("Global buffs ended.");
       return "Buffs cleared";
 
-    // ------------------------------------------------- gifts (unlimited quantities)
+    // Gifts (Unlimited)
     case "giveCoins": {
       const amt = parseAmount(m.amount);
       targets.forEach((r) => addCoins(r.d, amt));
@@ -114,7 +113,7 @@ function handle(m, ctx) {
       const amt = Math.floor(parseAmount(m.amount));
       targets.forEach((r) => (r.d.Eggs += amt));
       if (!who) banner(`🥚 GOLDEN EGG RAIN: everyone received ${F(amt)} Golden Eggs!`);
-      return `Gave ${amt} eggs to ${label}`;
+      return `Gave ${F(amt)} eggs to ${label}`;
     }
     case "giveRebirths": {
       const amt = Math.floor(parseAmount(m.amount));
@@ -183,7 +182,7 @@ function handle(m, ctx) {
       return "Announced";
     }
 
-    // ------------------------------------------------------------ moderation
+    // Moderation & Tools
     case "kick": {
       const e = needTarget(); if (e) return e;
       for (const [ws, r] of online) if (r === targets[0]) ws.close();
@@ -200,8 +199,6 @@ function handle(m, ctx) {
       ctx.send([...online.keys()].find((w) => online.get(w) === targets[0]), { t: "toast", msg: "Your progress was reset by an admin." });
       return `Reset ${targets[0].name}`;
     }
-
-    // ----------------------------------------------------------------- tools
     case "players":
       return {
         msg: `${all.length} online`,
