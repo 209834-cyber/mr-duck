@@ -2,49 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>3D Duck & Lemon Tycoon</title>
-
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-      user-select: none;
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; background: #000; }
+    #ui-layer { position: absolute; top: 15px; left: 15px; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.9); pointer-events: none; z-index: 10; }
+    h2, h3 { margin: 5px 0; }
+    
+    #inventory-bar {
+      width: 200px; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 10px; margin-top: 10px; overflow: hidden;
     }
-    #ui-layer {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      text-shadow: 1px 1px 3px black;
-      pointer-events: none;
-      z-index: 10;
+    #inventory-fill {
+      width: 0%; height: 100%; background: #ffeb3b; transition: width 0.2s;
     }
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 6px;
-      height: 6px;
-      background: white;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-    }
-  </style>
+    
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
+    #action-prompt { position: absolute; top: 55%; left: 50%; transform: translateX(-50%); color: #ffeb3b; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 3px black; pointer-events: none; display: none; z-index: 10; }
 
+    #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; z-index: 20; touch-action: none; }
+    #joystick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.7); border-radius: 50%; pointer-events: none; }
+    #action-btn { position: absolute; bottom: 40px; right: 30px; width: 80px; height: 80px; background: rgba(255, 235, 59, 0.9); border: 3px solid #fff; border-radius: 50%; color: #333; font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.4); touch-action: none; }
+    
+    @media (min-width: 768px) { #joystick-zone, #action-btn { display: none; } }
+  </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
   <div id="ui-layer">
-    <h2 id="coins-display">Coins: 0</h2>
-    <h3 id="lemons-display">Lemons: 0</h3>
-    <p>Click screen to move camera. WASD to walk.</p>
+    <h2 id="coins-display">💰 Coins: 0</h2>
+    <h3 id="lemons-display">🍋 Banked Lemons: 0</h3>
+    <div id="inventory-bar"><div id="inventory-fill"></div></div>
+    <p id="capacity-text">Backpack: 0 / 10</p>
+    <p id="prompt-text">PC: WASD to move, Mouse to look, 'E' to interact.</p>
   </div>
+  
   <div id="crosshair"></div>
+  <div id="action-prompt">Press E to Interact</div>
+
+  <div id="joystick-zone"><div id="joystick-knob"></div></div>
+  <div id="action-btn">ACTION</div>
 
   <script src="config.js"></script>
   <script src="game3d.js"></script>
