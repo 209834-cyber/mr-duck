@@ -81,7 +81,7 @@
       <button id="upgrade">Upgrade</button>
       <button id="rebirth">Rebirth</button>
       
-      <!-- New Features: Auto Automation Toggles -->
+      <!-- Automation Toggles -->
       <div style="display:flex; gap:6px; margin-top:4px;">
         <button id="autoPickBtn" class="toggle-btn" style="flex:1;">🤖 Auto-Pick: OFF</button>
         <button id="autoSellBtn" class="toggle-btn" style="flex:1;">⚡ Auto-Sell: OFF</button>
@@ -148,7 +148,7 @@ $("nameIn").value = localStorage.getItem("duckName") || "";
 let ws, state = null;
 let autoPickInterval = null, autoSellInterval = null;
 
-// Synthesized Audio SFX
+// Web Audio API SFX
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(freq, type = "sine", duration = 0.1) {
   try {
@@ -168,9 +168,21 @@ function toast(msg) {
 }
 
 function connect() {
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-  ws.onopen = () => ws.send(JSON.stringify({ t: "login", token, name: $("nameIn").value }));
-  ws.onclose = () => { toast("Disconnected. Reconnecting..."); setTimeout(connect, 2000); };
+  const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
+  const wsHost = location.host || "mr-duck.onrender.com";
+  
+  ws = new WebSocket(wsProtocol + wsHost);
+  
+  ws.onopen = () => {
+    toast("Connected to Render server!");
+    ws.send(JSON.stringify({ t: "login", token, name: $("nameIn").value }));
+  };
+  
+  ws.onclose = () => { 
+    toast("Server connecting/sleeping... retrying in 3s"); 
+    setTimeout(connect, 3000); 
+  };
+  
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
     if (window.onExtraMsg) window.onExtraMsg(m);
@@ -178,7 +190,7 @@ function connect() {
     if (m.t === "welcome") { 
       $("login").style.display = "none"; 
       if (m.isAdmin) $("adminToggleBtn").style.display = "inline-block";
-      if (m.offline > 0) toast("Welcome back! Your ducks earned " + F(m.offline) + " coins while away."); 
+      if (m.offline > 0) toast("Welcome back! Earned " + F(m.offline) + " coins while away."); 
     }
     else if (m.t === "state") { state = m; render(); }
     else if (m.t === "board") renderBoard(m);
@@ -187,7 +199,37 @@ function connect() {
   };
 }
 
-$("joinBtn").onclick = () => { localStorage.setItem("duckName", $("nameIn").value); connect(); };
+// PLAY BUTTON HANDLER (Includes immediate local entry for Render cold starts)
+$("joinBtn").onclick = () => {
+  const playerName = $("nameIn").value.trim() || "Duck Master";
+  localStorage.setItem("duckName", playerName);
+
+  // Initialize local default state if server response is pending
+  if (!state) {
+    state = {
+      Coins: 0,
+      Income: 0,
+      Lemons: 0,
+      LemonRate: 0,
+      Total: 0,
+      Slots: 10,
+      Stage: 1,
+      Rebirths: 0,
+      Ducks: new Array(Config.DuckNames.length).fill(0)
+    };
+  }
+
+  // Instantly unlock game UI
+  $("login").style.display = "none";
+  render();
+
+  // Connect to Render backend
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    toast("Waking up Render server...");
+    connect();
+  }
+};
+
 $("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
 
 const act = (a, arg) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "act", a, arg }));
@@ -201,7 +243,7 @@ $("rebirth").onclick = () => {
   }
 };
 
-// Automation Toggle Features
+// Automation Controls
 $("autoPickBtn").onclick = function() {
   if (autoPickInterval) {
     clearInterval(autoPickInterval); autoPickInterval = null;
@@ -222,7 +264,7 @@ $("autoSellBtn").onclick = function() {
   }
 };
 
-// Shop Population
+// Populate Shop Items
 const shopEls = [];
 Config.DuckNames.forEach((name, i) => {
   const b = document.createElement("button");
@@ -284,21 +326,24 @@ function render() {
   }
 }
 
-// FIXED renderBoard Function
 function renderBoard(m) {
   $("board").innerHTML = "";
-  m.rows.forEach((r) => { 
-    const li = document.createElement("li"); 
-    li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; 
-    $("board").appendChild(li); 
-  });
+  if (m.rows) {
+    m.rows.forEach((r) => { 
+      const li = document.createElement("li"); 
+      li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; 
+      $("board").appendChild(li); 
+    });
+  }
 
   $("online").innerHTML = "";
-  m.players.forEach((p) => { 
-    const li = document.createElement("li"); 
-    li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; 
-    $("online").appendChild(li); 
-  });
+  if (m.players) {
+    m.players.forEach((p) => { 
+      const li = document.createElement("li"); 
+      li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; 
+      $("online").appendChild(li); 
+    });
+  }
 }
 
 function addChat(name, msg) {
@@ -316,13 +361,13 @@ $("chatin").addEventListener("keydown", (e) => {
       toggleAdminModal(true);
       toast("Admin Modal Opened!");
     } else {
-      ws.send(JSON.stringify({ t: "chat", msg: txt })); 
+      act("Chat", txt); 
     }
     e.target.value = ""; 
   }
 });
 
-// ADMIN PANEL MODAL LOGIC
+// ADMIN MODAL LOGIC
 function toggleAdminModal(show) {
   const m = $("adminModal");
   m.style.display = (show !== undefined ? show : m.style.display !== "flex") ? "flex" : "none";
@@ -338,7 +383,7 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-// Admin Actions
+// Admin Control Actions
 $("admGiveCoins").onclick = () => {
   const val = parseFloat($("adminCoinsIn").value) || 1000000;
   act("AdminGiveCoins", val);
@@ -351,7 +396,7 @@ $("admClearDucks").onclick = () => { act("AdminClearDucks"); toast("Cleared Duck
 $("admGiveAllDucks").onclick = () => { act("AdminMaxDucks"); toast("Maxed Ducks"); };
 $("admBroadcast").onclick = () => {
   const msg = $("adminMsgIn").value;
-  if (msg) { ws.send(JSON.stringify({ t: "chat", msg: "📢 [ANNOUNCEMENT]: " + msg })); $("adminMsgIn").value = ""; }
+  if (msg) { act("Chat", "📢 [ANNOUNCEMENT]: " + msg); $("adminMsgIn").value = ""; }
 };
 </script>
 <script src="admin.js"></script>
