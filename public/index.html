@@ -7,7 +7,7 @@
 <style>
   :root { --bg:#7ed6f4; --panel:#fff8d6; --dark:#22303c; --accent:#e6b800; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: "Trebuchet MS", system-ui, sans-serif; background: linear-gradient(#bfeaff,#7ed6f4); color:var(--dark); min-height:100vh; }
+  body { margin:0; font-family: "Trebuchet MS", system-ui, sans-serif; background: linear-gradient(#bfeaff,#7ed6f4); color:var(--dark); min-height:100vh; padding-top: 36px; }
   
   #login { position:fixed; inset:0; background:rgba(20,30,40,.85); display:flex; align-items:center; justify-content:center; z-index:100; }
   #login .box { background:var(--panel); padding:28px; border-radius:16px; text-align:center; width:min(90vw,340px); }
@@ -17,8 +17,8 @@
   button:disabled { opacity:.45; cursor:not-allowed; }
   button:active:not(:disabled) { transform:scale(.97); }
   
-  header { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding:10px; background:var(--dark); color:#fff; font-weight:bold; }
-  header span { background:#34495e; padding:6px 12px; border-radius:20px; }
+  header { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:10px; background:var(--dark); color:#fff; font-weight:bold; z-index: 10; position: relative; }
+  header span { background:#34495e; padding:6px 12px; border-radius:20px; font-size: 14px; }
   
   main { display:grid; grid-template-columns: 260px 1fr 300px; gap:12px; padding:12px; max-width:1300px; margin:auto; }
   @media (max-width:950px){ main { grid-template-columns:1fr; } }
@@ -28,7 +28,7 @@
   .col { display:flex; flex-direction:column; gap:12px; }
   .btn-col { display:flex; flex-direction:column; gap:8px; }
   
-  #lemon { background:#e6b800; font-size:20px; padding:16px; }
+  #lemon { background:#e6b800; font-size:18px; padding:14px; }
   #sell { background:#3aa655; }
   #upgrade { background:#4a6fdc; }
   #rebirth { background:#aa3cc8; }
@@ -46,30 +46,27 @@
   #chatlog { height:150px; overflow-y:auto; background:#fff; border-radius:8px; padding:6px; font-size:13px; }
   #chatin { width:100%; padding:8px; border-radius:8px; border:2px solid #cbb; margin-top:6px; }
   ol,ul { margin:0; padding-left:20px; font-size:14px; }
-  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--dark); color:#fff; padding:10px 18px; border-radius:20px; display:none; z-index:20; }
-
-  /* Admin Modal Styling */
-  #adminModal { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:200; }
-  #adminModal .modal-content { background:var(--panel); padding:20px; border-radius:14px; width:min(90vw,420px); max-height:85vh; overflow-y:auto; border:3px solid #e74c3c; }
-  #adminModal h2 { margin-top:0; color:#c0392b; display:flex; justify-content:space-between; align-items:center; }
-  .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
-  .admin-btn { background:#e74c3c; padding:10px; font-size:13px; }
-  .admin-input { width:100%; padding:8px; margin:4px 0; border-radius:6px; border:1px solid #ccc; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--dark); color:#fff; padding:10px 18px; border-radius:20px; display:none; z-index:90; }
 </style>
 </head>
 <body>
 
-<div id="login"><div class="box">
-  <h1>🦆 Duck & Lemon Tycoon 🍋</h1>
-  <p>Pick a name to join the pond</p>
-  <input id="nameIn" maxlength="16" placeholder="Your name">
-  <button id="joinBtn" style="background:#e6b800;width:100%">Play!</button>
-</div></div>
+<div id="login">
+  <div class="box">
+    <h1>🦆 Duck & Lemon Tycoon 🍋</h1>
+    <p>Pick a name to join the pond</p>
+    <input id="nameIn" maxlength="16" placeholder="Your name">
+    <button id="joinBtn" style="background:#e6b800;width:100%">Play!</button>
+  </div>
+</div>
 
 <header>
-  <span id="coins">💰 0</span><span id="lemons">🍋 0</span>
-  <span id="ducks">🦆 0/10</span><span id="stage">Lemon Stand</span><span id="reb">🔄 x1</span>
-  <button id="adminToggleBtn" style="background:#e74c3c; padding:4px 10px; font-size:12px; display:none;">⚙ Admin</button>
+  <span id="coins">💰 0</span>
+  <span id="lemons">🍋 0</span>
+  <span id="eggs">🥚 0</span>
+  <span id="ducks">🦆 0/10</span>
+  <span id="stage">Lemon Stand</span>
+  <span id="reb">🔄 x1</span>
 </header>
 
 <main>
@@ -78,10 +75,9 @@
       <h3>Lemon Business</h3>
       <button id="lemon">🍋 Pick Lemons</button>
       <button id="sell">💰 Sell Lemons</button>
-      <button id="upgrade">Upgrade</button>
+      <button id="upgrade">Upgrade Stage</button>
       <button id="rebirth">Rebirth</button>
       
-      <!-- Automation Toggles -->
       <div style="display:flex; gap:6px; margin-top:4px;">
         <button id="autoPickBtn" class="toggle-btn" style="flex:1;">🤖 Auto-Pick: OFF</button>
         <button id="autoSellBtn" class="toggle-btn" style="flex:1;">⚡ Auto-Sell: OFF</button>
@@ -97,70 +93,44 @@
 
   <div class="col">
     <div class="panel"><h3>🏆 Leaderboard</h3><ol id="board"></ol></div>
-    <div class="panel"><h3>Chat</h3><div id="chatlog"></div>
-      <input id="chatin" maxlength="120" placeholder="Say something (or /admin password)"></div>
+    <div class="panel">
+      <h3>Chat</h3>
+      <div id="chatlog"></div>
+      <input id="chatin" maxlength="120" placeholder="Say something...">
+    </div>
   </div>
 </main>
 
 <div id="toast"></div>
 
-<!-- ADMIN PANEL MODAL -->
-<div id="adminModal">
-  <div class="modal-content">
-    <h2>👑 Admin Panel <button id="closeAdminBtn" style="background:#7f8c8d; padding:4px 8px; font-size:12px;">✕</button></h2>
-    <p style="font-size:12px; opacity:0.8;">Shortcut: Press <b>Shift + A</b> anytime to toggle.</p>
-    
-    <label>Give Custom Currency:</label>
-    <input id="adminCoinsIn" type="number" class="admin-input" placeholder="Coins amount (e.g. 1000000)">
-    <div class="admin-grid">
-      <button class="admin-btn" id="admGiveCoins">💰 Give Coins</button>
-      <button class="admin-btn" id="admGiveLemons">🍋 Give 10k Lemons</button>
-    </div>
-
-    <hr style="margin:12px 0; border:0; border-top:1px solid #ccc;">
-
-    <label>Quick Modifiers:</label>
-    <div class="admin-grid">
-      <button class="admin-btn" id="admMaxStage" style="background:#2980b9;">⬆ Max Stage</button>
-      <button class="admin-btn" id="admAddRebirth" style="background:#8e44ad;">🔄 +1 Rebirth</button>
-      <button class="admin-btn" id="admClearDucks" style="background:#d35400;">🧹 Clear Ducks</button>
-      <button class="admin-btn" id="admGiveAllDucks" style="background:#27ae60;">🦆 Max Ducks</button>
-    </div>
-
-    <hr style="margin:12px 0; border:0; border-top:1px solid #ccc;">
-
-    <label>Server Command Broadcast:</label>
-    <input id="adminMsgIn" class="admin-input" placeholder="Broadcast message...">
-    <button class="admin-btn" id="admBroadcast" style="width:100%; margin-top:4px;">📢 Send Announcement</button>
-  </div>
-</div>
-
+<!-- Core Game Setup Script -->
 <script src="config.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const F = Config.Format;
 const COLORS = [55,50,200,45,120,190,30,60,42,180,350,150,185,170,200,20,195,270,0,290];
 
+// Safe formatting wrapper
+function F(num) {
+  const val = Number(num);
+  if (isNaN(val) || val === undefined || val === null) return "0";
+  if (window.Config && typeof Config.Format === "function") return Config.Format(val);
+  if (val >= 1e12) return (val / 1e12).toFixed(2) + "T";
+  if (val >= 1e9) return (val / 1e9).toFixed(2) + "B";
+  if (val >= 1e6) return (val / 1e6).toFixed(2) + "M";
+  if (val >= 1e3) return (val / 1e3).toFixed(1) + "K";
+  return Math.floor(val).toLocaleString();
+}
+
 let token = localStorage.getItem("duckToken");
-if (!token) { token = crypto.randomUUID() + crypto.randomUUID(); localStorage.setItem("duckToken", token); }
+if (!token) { 
+  token = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)) + Date.now(); 
+  localStorage.setItem("duckToken", token); 
+}
 $("nameIn").value = localStorage.getItem("duckName") || "";
 
-let ws, state = null;
+var ws = null; // Exposed globally so admin1.js can access ws
+let state = null;
 let autoPickInterval = null, autoSellInterval = null;
-
-// Web Audio API SFX
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playSound(freq, type = "sine", duration = 0.1) {
-  try {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type; osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(); osc.stop(audioCtx.currentTime + duration);
-  } catch(e){}
-}
 
 function toast(msg) { 
   const t = $("toast"); t.textContent = msg; t.style.display = "block"; 
@@ -174,58 +144,53 @@ function connect() {
   ws = new WebSocket(wsProtocol + wsHost);
   
   ws.onopen = () => {
-    toast("Connected to Render server!");
+    toast("Connected to server!");
     ws.send(JSON.stringify({ t: "login", token, name: $("nameIn").value }));
   };
   
   ws.onclose = () => { 
-    toast("Server connecting/sleeping... retrying in 3s"); 
+    toast("Server reconnecting... retrying in 3s"); 
     setTimeout(connect, 3000); 
   };
   
   ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
-    if (window.onExtraMsg) window.onExtraMsg(m);
-    
-    if (m.t === "welcome") { 
-      $("login").style.display = "none"; 
-      if (m.isAdmin) $("adminToggleBtn").style.display = "inline-block";
-      if (m.offline > 0) toast("Welcome back! Earned " + F(m.offline) + " coins while away."); 
-    }
-    else if (m.t === "state") { state = m; render(); }
-    else if (m.t === "board") renderBoard(m);
-    else if (m.t === "chat") addChat(m.name, m.msg);
-    else if (m.t === "err") toast(m.msg);
+    try {
+      const m = JSON.parse(e.data);
+      // Pass message to admin1.js module listener if present
+      if (typeof window.onExtraMsg === "function") {
+        window.onExtraMsg(m);
+      }
+      
+      if (m.t === "welcome") { 
+        $("login").style.display = "none"; 
+        if (m.offline > 0) toast("Earned " + F(m.offline) + " coins while away!"); 
+      }
+      else if (m.t === "state") { 
+        state = m; 
+        render(); 
+      }
+      else if (m.t === "board") renderBoard(m);
+      else if (m.t === "chat") addChat(m.name, m.msg);
+      else if (m.t === "err" || m.t === "toast") toast(m.msg);
+    } catch(err) { console.error("Parse error:", err); }
   };
 }
 
-// PLAY BUTTON HANDLER (Includes immediate local entry for Render cold starts)
 $("joinBtn").onclick = () => {
-  const playerName = $("nameIn").value.trim() || "Duck Master";
-  localStorage.setItem("duckName", playerName);
+  const name = $("nameIn").value.trim() || "Duck Master";
+  localStorage.setItem("duckName", name);
 
-  // Initialize local default state if server response is pending
   if (!state) {
     state = {
-      Coins: 0,
-      Income: 0,
-      Lemons: 0,
-      LemonRate: 0,
-      Total: 0,
-      Slots: 10,
-      Stage: 1,
-      Rebirths: 0,
-      Ducks: new Array(Config.DuckNames.length).fill(0)
+      Coins: 0, Income: 0, Lemons: 0, LemonRate: 0, Eggs: 0, Total: 0, Slots: 10, Stage: 1, Rebirths: 0,
+      Ducks: (window.Config && Config.DuckNames) ? new Array(Config.DuckNames.length).fill(0) : [0,0,0,0,0]
     };
   }
 
-  // Instantly unlock game UI
   $("login").style.display = "none";
   render();
 
-  // Connect to Render backend
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    toast("Waking up Render server...");
     connect();
   }
 };
@@ -234,16 +199,16 @@ $("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinB
 
 const act = (a, arg) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "act", a, arg }));
 
-$("lemon").onclick = () => { act("PickLemons"); playSound(520, "sine", 0.08); };
-$("sell").onclick = () => { act("SellLemons"); playSound(880, "triangle", 0.12); };
-$("upgrade").onclick = () => { act("UpgradeLemon"); playSound(600, "square", 0.15); };
+$("lemon").onclick = () => act("PickLemons");
+$("sell").onclick = () => act("SellLemons");
+$("upgrade").onclick = () => act("UpgradeLemon");
 $("rebirth").onclick = () => { 
-  if (confirm("Rebirth resets your coins, lemons, ducks and lemon stage for a permanent multiplier. Continue?")) {
-    act("Rebirth"); playSound(1000, "sawtooth", 0.3);
+  if (confirm("Rebirth resets coins, lemons, ducks, and lemon stage for a permanent multiplier. Continue?")) {
+    act("Rebirth");
   }
 };
 
-// Automation Controls
+// Automation Toggles
 $("autoPickBtn").onclick = function() {
   if (autoPickInterval) {
     clearInterval(autoPickInterval); autoPickInterval = null;
@@ -266,63 +231,84 @@ $("autoSellBtn").onclick = function() {
 
 // Populate Shop Items
 const shopEls = [];
-Config.DuckNames.forEach((name, i) => {
-  const b = document.createElement("button");
-  b.className = "shopitem";
-  b.style.background = `hsl(${COLORS[i]},80%,75%)`;
-  b.onclick = () => { act("BuyDuck", i + 1); playSound(440 + i * 40, "sine", 0.1); };
-  $("shop").appendChild(b);
-  shopEls.push(b);
-});
+function initShop() {
+  const shop = $("shop");
+  shop.innerHTML = "";
+  if (!window.Config || !Config.DuckNames) return;
+  Config.DuckNames.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.className = "shopitem";
+    b.style.background = `hsl(${COLORS[i % COLORS.length]},80%,75%)`;
+    b.onclick = () => act("BuyDuck", i + 1);
+    shop.appendChild(b);
+    shopEls.push(b);
+  });
+}
 
 function render() {
   const s = state;
   if (!s) return;
 
-  $("coins").textContent = `💰 ${F(s.Coins)} (+${F(s.Income)}/s)`;
-  $("lemons").textContent = `🍋 ${F(s.Lemons)} (+${F(s.LemonRate)}/s)`;
-  $("ducks").textContent = `🦆 ${s.Total}/${s.Slots}`;
-  const st = Config.Stage(s.Stage);
-  $("stage").textContent = `${st.Name} (${st.SellPrice}c/lemon)`;
-  $("reb").textContent = `🔄 x${Config.RebirthMult(s.Rebirths).toFixed(2)}`;
-  $("lemon").textContent = `🍋 Pick Lemons (+${st.PickAmount})`;
+  if (!shopEls.length && window.Config) initShop();
 
-  const next = s.Stage + 1;
-  if (next <= Config.StageNames.length) {
-    const c = Config.Stage(next).Cost;
-    $("upgrade").textContent = `⬆ ${Config.StageNames[next - 1]} (${F(c)})`;
-    $("upgrade").disabled = s.Coins < c;
+  // Safely render Currency Counters
+  $("coins").textContent = `💰 ${F(s.Coins || 0)} (+${F(s.Income || 0)}/s)`;
+  $("lemons").textContent = `🍋 ${F(s.Lemons || 0)} (+${F(s.LemonRate || 0)}/s)`;
+  $("eggs").textContent = `🥚 ${F(s.Eggs || 0)}`;
+  $("ducks").textContent = `🦆 ${s.Total || 0}/${s.Slots || 10}`;
+
+  const stageIdx = s.Stage || 1;
+  const stageName = (Config.StageNames && Config.StageNames[stageIdx - 1]) ? Config.StageNames[stageIdx - 1] : "Stage " + stageIdx;
+  const stageObj = Config.Stage ? Config.Stage(stageIdx) : { SellPrice: 1, PickAmount: 1 };
+  
+  $("stage").textContent = `${stageName} (${F(stageObj.SellPrice)}c/lemon)`;
+  
+  const mult = Config.RebirthMult ? Config.RebirthMult(s.Rebirths || 0) : (1 + (s.Rebirths || 0));
+  $("reb").textContent = `🔄 x${Number(mult).toFixed(2)}`;
+  $("lemon").textContent = `🍋 Pick Lemons (+${stageObj.PickAmount})`;
+
+  const nextStage = stageIdx + 1;
+  if (Config.StageNames && nextStage <= Config.StageNames.length) {
+    const cost = Config.Stage(nextStage).Cost;
+    $("upgrade").textContent = `⬆ ${Config.StageNames[nextStage - 1]} (${F(cost)})`;
+    $("upgrade").disabled = (s.Coins || 0) < cost;
   } else { 
     $("upgrade").textContent = "MAX Lemon Stage!"; 
     $("upgrade").disabled = true; 
   }
 
-  const rc = Config.RebirthCost(s.Rebirths);
-  $("rebirth").textContent = `🔄 Rebirth #${s.Rebirths + 1} (${F(rc)}) → x${Config.RebirthMult(s.Rebirths + 1).toFixed(2)}`;
-  $("rebirth").disabled = s.Coins < rc;
+  const rebCost = Config.RebirthCost ? Config.RebirthCost(s.Rebirths || 0) : 1e6;
+  const nextMult = Config.RebirthMult ? Config.RebirthMult((s.Rebirths || 0) + 1) : 2;
+  $("rebirth").textContent = `🔄 Rebirth #${(s.Rebirths || 0) + 1} (${F(rebCost)}) → x${Number(nextMult).toFixed(2)}`;
+  $("rebirth").disabled = (s.Coins || 0) < rebCost;
 
+  // Shop update
   shopEls.forEach((b, i) => {
     const cost = Config.DuckCost(i + 1);
-    b.innerHTML = `<span><b>${Config.DuckNames[i]}</b><small>+${F(Config.DuckIncome(i + 1))}/s · owned ${s.Ducks[i]}</small></span><span>${F(cost)}</span>`;
-    b.disabled = s.Coins < cost || s.Total >= s.Slots;
+    const owned = (s.Ducks && s.Ducks[i]) ? s.Ducks[i] : 0;
+    b.innerHTML = `<span><b>${Config.DuckNames[i]}</b><small>+${F(Config.DuckIncome(i + 1))}/s · owned ${owned}</small></span><span>${F(cost)}</span>`;
+    b.disabled = (s.Coins || 0) < cost || (s.Total || 0) >= (s.Slots || 10);
   });
 
-  const key = s.Ducks.join(",");
-  if (render.key !== key) {
-    render.key = key;
-    const pond = $("pond"); pond.innerHTML = "";
-    let n = 0;
-    s.Ducks.forEach((cnt, i) => {
-      for (let k = 0; k < cnt; k++) {
-        const d = document.createElement("div");
-        d.className = "duck"; d.textContent = "🦆";
-        d.style.fontSize = (24 + i * 1.2) + "px";
-        d.style.filter = `hue-rotate(${COLORS[i] - 50}deg) saturate(1.3)`;
-        d.style.animationDelay = (n++ % 10) * 0.2 + "s";
-        d.title = Config.DuckNames[i];
-        pond.appendChild(d);
-      }
-    });
+  // Pond ducks render
+  if (s.Ducks) {
+    const key = s.Ducks.join(",");
+    if (render.key !== key) {
+      render.key = key;
+      const pond = $("pond"); pond.innerHTML = "";
+      let n = 0;
+      s.Ducks.forEach((cnt, i) => {
+        for (let k = 0; k < cnt; k++) {
+          const d = document.createElement("div");
+          d.className = "duck"; d.textContent = "🦆";
+          d.style.fontSize = (24 + i * 1.2) + "px";
+          d.style.filter = `hue-rotate(${COLORS[i % COLORS.length] - 50}deg) saturate(1.3)`;
+          d.style.animationDelay = (n++ % 10) * 0.2 + "s";
+          d.title = Config.DuckNames[i] || "Duck";
+          pond.appendChild(d);
+        }
+      });
+    }
   }
 }
 
@@ -331,7 +317,7 @@ function renderBoard(m) {
   if (m.rows) {
     m.rows.forEach((r) => { 
       const li = document.createElement("li"); 
-      li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; 
+      li.textContent = `${r.name} — ${r.rebirths || 0} rebirths, ${F(r.earned || 0)} earned`; 
       $("board").appendChild(li); 
     });
   }
@@ -340,7 +326,8 @@ function renderBoard(m) {
   if (m.players) {
     m.players.forEach((p) => { 
       const li = document.createElement("li"); 
-      li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; 
+      const stName = (Config.StageNames && Config.StageNames[p.stage - 1]) ? Config.StageNames[p.stage - 1] : "Stage " + p.stage;
+      li.textContent = `${p.name} — 🦆${p.ducks || 0} · ${stName}`; 
       $("online").appendChild(li); 
     });
   }
@@ -356,49 +343,13 @@ function addChat(name, msg) {
 
 $("chatin").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.value.trim()) { 
-    const txt = e.target.value.trim();
-    if (txt.startsWith("/admin")) {
-      toggleAdminModal(true);
-      toast("Admin Modal Opened!");
-    } else {
-      act("Chat", txt); 
-    }
+    act("Chat", e.target.value.trim()); 
     e.target.value = ""; 
   }
 });
-
-// ADMIN MODAL LOGIC
-function toggleAdminModal(show) {
-  const m = $("adminModal");
-  m.style.display = (show !== undefined ? show : m.style.display !== "flex") ? "flex" : "none";
-}
-
-$("adminToggleBtn").onclick = () => toggleAdminModal(true);
-$("closeAdminBtn").onclick = () => toggleAdminModal(false);
-
-window.addEventListener("keydown", (e) => {
-  if (e.shiftKey && e.key.toUpperCase() === "A") {
-    e.preventDefault();
-    toggleAdminModal();
-  }
-});
-
-// Admin Control Actions
-$("admGiveCoins").onclick = () => {
-  const val = parseFloat($("adminCoinsIn").value) || 1000000;
-  act("AdminGiveCoins", val);
-  toast(`Gave ${F(val)} coins`);
-};
-$("admGiveLemons").onclick = () => { act("AdminGiveLemons", 10000); toast("Gave 10,000 Lemons"); };
-$("admMaxStage").onclick = () => { act("AdminMaxStage"); toast("Set Stage to MAX"); };
-$("admAddRebirth").onclick = () => { act("AdminAddRebirth"); toast("Added +1 Rebirth"); };
-$("admClearDucks").onclick = () => { act("AdminClearDucks"); toast("Cleared Ducks"); };
-$("admGiveAllDucks").onclick = () => { act("AdminMaxDucks"); toast("Maxed Ducks"); };
-$("admBroadcast").onclick = () => {
-  const msg = $("adminMsgIn").value;
-  if (msg) { act("Chat", "📢 [ANNOUNCEMENT]: " + msg); $("adminMsgIn").value = ""; }
-};
 </script>
-<script src="admin.js"></script>
+
+<!-- Load the client-side hidden admin panel module -->
+<script src="admin1.js"></script>
 </body>
 </html>
