@@ -1,102 +1,181 @@
 "use strict";
 
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x87ceeb, 0.02);
+// -------------------------------------------------------------
+// 0. Audio Synthesizer (Web Audio API - No external assets)
+// -------------------------------------------------------------
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.appendChild(renderer.domElement);
+function playSound(type) {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === "suspended") audioCtx.resume();
 
-// Environment Lighting (Day/Night)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambientLight);
-const sunLight = new THREE.DirectionalLight(0xffffff, 1);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 1024;
-sunLight.shadow.mapSize.height = 1024;
-scene.add(sunLight);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
 
-// World Map
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(150, 150),
-  new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.8 })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Pond
-const pond = new THREE.Mesh(
-  new THREE.CylinderGeometry(12, 12, 0.2, 32),
-  new THREE.MeshStandardMaterial({ color: 0x03a9f4, transparent: true, opacity: 0.8 })
-);
-pond.position.set(-15, 0.1, -15);
-scene.add(pond);
-
-// Interactive Objects
-const trees = [];
-const sellStandPos = new THREE.Vector3(0, 0, -5);
-
-function createTree(x, z) {
-  const tree = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 3), new THREE.MeshStandardMaterial({ color: 0x5d4037 }));
-  trunk.position.y = 1.5; trunk.castShadow = true; tree.add(trunk);
-  const leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(2.5), new THREE.MeshStandardMaterial({ color: 0x2e7d32 }));
-  leaves.position.y = 4; leaves.castShadow = true; tree.add(leaves);
-  tree.position.set(x, 0, z);
-  scene.add(tree);
-  trees.push({ mesh: tree, lemons: 5, lastPicked: 0 });
+  const now = audioCtx.currentTime;
+  if (type === "pop") {
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+    gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0, now + 0.08);
+    osc.start(now); osc.stop(now + 0.08);
+  } else if (type === "coin") {
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.setValueAtTime(1200, now + 0.05);
+    gain.gain.setValueAtTime(0.25, now); gain.gain.linearRampToValueAtTime(0, now + 0.2);
+    osc.start(now); osc.stop(now + 0.2);
+  } else if (type === "plant") {
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.15);
+    gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0, now + 0.15);
+    osc.start(now); osc.stop(now + 0.15);
+  }
 }
 
-// Plant Orchard
-for(let i=0; i<6; i++) createTree(-10 + (i%3)*10, 10 + Math.floor(i/3)*10);
+// -------------------------------------------------------------
+// 1. Guaranteed Scene & Canvas Setup
+// -------------------------------------------------------------
+const canvas = document.getElementById("game-canvas");
+const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-// Sell Stand
-const stand = new THREE.Group();
-const table = new THREE.Mesh(new THREE.BoxGeometry(5, 1, 2), new THREE.MeshStandardMaterial({ color: 0x795548 }));
-table.position.y = 0.5; stand.add(table);
-const sign = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 0.2), new THREE.MeshStandardMaterial({ color: 0xffeb3b }));
-sign.position.set(0, 3, 0); stand.add(sign);
-stand.position.copy(sellStandPos);
-scene.add(stand);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x38bdf8);
+scene.fog = new THREE.FogExp2(0x38bdf8, 0.015);
 
-// Player Setup
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+// FAILSAFE LIGHTING (Guarantees visible map objects even without shadows)
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d5a80, 0.7);
+scene.add(hemiLight);
+
+const sunLight = new THREE.DirectionalLight(0xfffbeb, 0.9);
+sunLight.position.set(30, 50, 20); sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 1024; sunLight.shadow.mapSize.height = 1024;
+scene.add(sunLight);
+
+// -------------------------------------------------------------
+// 2. Procedural Canvas Textures
+// -------------------------------------------------------------
+function makeGrassTexture() {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#4ade80"; ctx.fillRect(0,0,256,256);
+  for(let i=0; i<800; i++) {
+    ctx.fillStyle = Math.random() > 0.5 ? "#22c55e" : "#16a34a";
+    ctx.fillRect(Math.random()*256, Math.random()*256, 3, 3);
+  }
+  const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(16, 16); return tex;
+}
+
+// Map Ground
+const groundMat = new THREE.MeshStandardMaterial({ map: makeGrassTexture(), roughness: 0.9 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+// Map Pond & Water
+const pondGroup = new THREE.Group();
+const pondWater = new THREE.Mesh(
+  new THREE.CylinderGeometry(14, 14, 0.2, 32),
+  new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, transparent: true, opacity: 0.85 })
+);
+pondWater.position.y = 0.1; pondGroup.add(pondWater);
+pondGroup.position.set(-20, 0, -20); scene.add(pondGroup);
+
+// 4 Plot Soil Beds for Duck Seeds
+const plotMeshes = [];
+const plotPositions = [
+  new THREE.Vector3(-25, 0.15, -10), new THREE.Vector3(-15, 0.15, -10),
+  new THREE.Vector3(-25, 0.15, -5),  new THREE.Vector3(-15, 0.15, -5)
+];
+plotPositions.forEach((pos, idx) => {
+  const plot = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 4), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+  plot.position.copy(pos); scene.add(plot);
+  const plantPivot = new THREE.Group(); plantPivot.position.copy(pos); scene.add(plantPivot);
+  plotMeshes.push({ bed: plot, pivot: plantPivot, idx: idx });
+});
+
+// Map Interactive Zones
+const sellStandPos = new THREE.Vector3(0, 0, -5);
+const seedShopPos = new THREE.Vector3(-20, 0, 10);
+
+// Build Nursery Shop
+function createSeedShopBuilding() {
+  const shop = new THREE.Group();
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(7, 4, 5), new THREE.MeshStandardMaterial({ color: 0x854d0e }));
+  walls.position.y = 2; shop.add(walls);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 2.5, 4), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+  roof.position.y = 5.25; roof.rotation.y = Math.PI / 4; shop.add(roof);
+  shop.position.copy(seedShopPos); scene.add(shop);
+}
+createSeedShopBuilding();
+
+// Build Market Stand
+function createMarketStand() {
+  const stand = new THREE.Group();
+  const table = new THREE.Mesh(new THREE.BoxGeometry(6, 1.2, 2.5), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+  table.position.y = 0.6; stand.add(table);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(5, 1.5, 0.3), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+  sign.position.set(0, 3, 0); stand.add(sign);
+  stand.position.copy(sellStandPos); scene.add(stand);
+}
+createMarketStand();
+
+// Orchard Lemon Trees
+const trees = [];
+function createLemonTree(x, z) {
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 3.5), new THREE.MeshStandardMaterial({ color: 0x451a03 }));
+  trunk.position.y = 1.75; trunk.castShadow = true; tree.add(trunk);
+  const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(2.8), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+  foliage.position.y = 4.5; foliage.castShadow = true; tree.add(foliage);
+  tree.position.set(x, 0, z); scene.add(tree);
+  trees.push({ mesh: tree, lemons: 5, lastPicked: 0 });
+}
+for(let i=0; i<8; i++) createLemonTree(-8 + (i%4)*10, 15 + Math.floor(i/4)*10);
+
+// -------------------------------------------------------------
+// 3. Player Character & Dual Controls
+// -------------------------------------------------------------
 const playerGroup = new THREE.Group();
-const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0xe91e63 }));
-body.position.y = 1; body.castShadow = true; playerGroup.add(body);
+const playerMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0xec4899 }));
+playerMesh.position.y = 1; playerMesh.castShadow = true; playerGroup.add(playerMesh);
 scene.add(playerGroup);
 
-// Mechanics & Input
-let yaw = 0, pitch = 0, speed = 0.2, camDist = 6;
-const keys = { w: false, a: false, s: false, d: false, e: false };
-let moveInput = { x: 0, z: 0 };
-let isInteracting = false;
-let serverTotalDucks = 0;
+let yaw = 0, pitch = 0, baseSpeed = 0.22, camDist = 7;
+const keys = { w: false, a: false, s: false, d: false, e: false, u: false };
+let moveInput = { x: 0, z: 0 }, isInteracting = false;
+let gameState = { BackpackLvl: 1, SpeedLvl: 1, Backpack: 0, Capacity: 10, Coins: 0 };
 
-document.addEventListener("keydown", e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
-document.addEventListener("keyup", e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
-document.addEventListener("mousedown", e => { if(e.target.tagName === "CANVAS") document.body.requestPointerLock(); });
+document.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (keys.hasOwnProperty(k)) keys[k] = true;
+  if (k === "u") toggleModal("upgrades-modal");
+});
+document.addEventListener("keyup", e => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = false; });
+
+document.addEventListener("mousedown", e => { if (e.target.tagName === "CANVAS") document.body.requestPointerLock(); });
 document.addEventListener("mousemove", e => {
   if (document.pointerLockElement) {
-    yaw -= e.movementX * 0.003;
-    pitch -= e.movementY * 0.003;
+    yaw -= e.movementX * 0.003; pitch -= e.movementY * 0.003;
     pitch = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, pitch));
   }
 });
 
-// Mobile Controls
-const joyZone = document.getElementById("joystick-zone");
-const joyKnob = document.getElementById("joystick-knob");
+// Mobile Joystick Logic
+const joyZone = document.getElementById("joystick-zone"), joyKnob = document.getElementById("joystick-knob");
 let joyId = null;
 joyZone.addEventListener("touchstart", e => { joyId = e.changedTouches[0].identifier; }, {passive: false});
 joyZone.addEventListener("touchmove", e => {
-  for(let t of e.changedTouches) {
-    if(t.identifier === joyId) {
-      const r = joyZone.getBoundingClientRect();
-      const dx = t.clientX - (r.left + r.width/2), dy = t.clientY - (r.top + r.height/2);
+  for (let t of e.changedTouches) {
+    if (t.identifier === joyId) {
+      const r = joyZone.getBoundingClientRect(), dx = t.clientX - (r.left + r.width/2), dy = t.clientY - (r.top + r.height/2);
       const dist = Math.min(Math.hypot(dx, dy), 40), angle = Math.atan2(dy, dx);
       joyKnob.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
       moveInput.x = Math.cos(angle)*(dist/40); moveInput.z = Math.sin(angle)*(dist/40);
@@ -106,122 +185,236 @@ joyZone.addEventListener("touchmove", e => {
 const resetJoy = () => { joyId = null; joyKnob.style.transform = `translate(0,0)`; moveInput.x = moveInput.z = 0; };
 joyZone.addEventListener("touchend", resetJoy); joyZone.addEventListener("touchcancel", resetJoy);
 
-const actionBtn = document.getElementById("action-btn");
-actionBtn.addEventListener("touchstart", () => isInteracting = true);
-actionBtn.addEventListener("touchend", () => isInteracting = false);
-window.addEventListener("touchmove", e => {
-  if(e.target.tagName === "CANVAS" && joyId === null) {
-    yaw -= e.movementX * 0.005; pitch -= e.movementY * 0.005;
-    pitch = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, pitch));
+document.getElementById("action-btn").addEventListener("touchstart", () => isInteracting = true);
+document.getElementById("action-btn").addEventListener("touchend", () => isInteracting = false);
+
+// -------------------------------------------------------------
+// 4. Floating 3D Text Popups & Minimap Engine
+// -------------------------------------------------------------
+const popups = [];
+function spawnFloatingText(text, color, pos) {
+  const div = document.createElement("div");
+  div.innerText = text; div.style.position = "absolute"; div.style.color = color;
+  div.style.fontWeight = "900"; div.style.fontSize = "18px"; div.style.textShadow = "2px 2px 4px #000";
+  div.style.pointerEvents = "none"; div.style.zIndex = "15";
+  document.body.appendChild(div);
+  popups.push({ el: div, pos: pos.clone().add(new THREE.Vector3(0, 2, 0)), life: 1.0 });
+}
+
+function updatePopups() {
+  const tempV = new THREE.Vector3();
+  for (let i = popups.length - 1; i >= 0; i--) {
+    const p = popups[i];
+    p.life -= 0.02; p.pos.y += 0.03;
+    if (p.life <= 0) { document.body.removeChild(p.el); popups.splice(i, 1); continue; }
+    tempV.copy(p.pos); tempV.project(camera);
+    const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
+    p.el.style.left = `${x}px`; p.el.style.top = `${y}px`; p.el.style.opacity = p.life;
   }
-});
-
-// Ducks Ecosystem
-const duckMeshes = [];
-function spawnDuck() {
-  const group = new THREE.Group();
-  const dBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.8), new THREE.MeshStandardMaterial({color: 0xffeb3b}));
-  dBody.position.y = 0.2; group.add(dBody);
-  group.position.set(-15 + (Math.random()*10 - 5), 0.2, -15 + (Math.random()*10 - 5));
-  group.userData = { tx: group.position.x, tz: group.position.z };
-  scene.add(group);
-  duckMeshes.push(group);
 }
 
-function updateDucks() {
-  while(duckMeshes.length < Math.min(serverTotalDucks, 30)) spawnDuck();
-  duckMeshes.forEach(d => {
-    const dx = d.userData.tx - d.position.x;
-    const dz = d.userData.tz - d.position.z;
-    if (Math.hypot(dx, dz) < 0.5) {
-      d.userData.tx = -15 + (Math.random()*16 - 8);
-      d.userData.tz = -15 + (Math.random()*16 - 8);
-    } else {
-      d.position.x += dx * 0.01;
-      d.position.z += dz * 0.01;
-      d.rotation.y = Math.atan2(dx, dz);
-      d.position.y = 0.2 + Math.sin(Date.now() * 0.01 + d.position.x) * 0.1; // Waddling
-    }
+// Minimap Renderer
+const minimapCanvas = document.getElementById("minimap");
+const mctx = minimapCanvas.getContext("2d");
+function drawMinimap() {
+  mctx.clearRect(0,0,120,120);
+  mctx.fillStyle = "#1e293b"; mctx.fillRect(0,0,120,120);
+
+  const cx = 60, cy = 60, scale = 0.7;
+  
+  // Draw Pond
+  mctx.fillStyle = "#0284c7";
+  mctx.beginPath(); mctx.arc(cx + (-20)*scale, cy + (-20)*scale, 10, 0, Math.PI*2); mctx.fill();
+
+  // Draw Trees
+  mctx.fillStyle = "#22c55e";
+  trees.forEach(t => {
+    mctx.beginPath(); mctx.arc(cx + t.mesh.position.x*scale, cy + t.mesh.position.z*scale, 3, 0, Math.PI*2); mctx.fill();
   });
+
+  // Draw Player
+  mctx.fillStyle = "#ec4899";
+  mctx.beginPath(); mctx.arc(cx + playerGroup.position.x*scale, cy + playerGroup.position.z*scale, 4, 0, Math.PI*2); mctx.fill();
 }
 
-// Websocket sync
+// -------------------------------------------------------------
+// 5. Websocket Synchronization & Modals
+// -------------------------------------------------------------
 const ws = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}`);
 ws.onopen = () => ws.send(JSON.stringify({ t: "login", token: localStorage.getItem("token") || "tok_"+Math.random() }));
+
+window.toggleModal = (id) => {
+  const m = document.getElementById(id);
+  const show = m.style.display !== "block";
+  closeModals();
+  if (show) { m.style.display = "block"; document.exitPointerLock(); }
+};
+window.closeModals = () => {
+  document.querySelectorAll(".game-modal").forEach(m => m.style.display = "none");
+};
+
+document.getElementById("open-upgrades-btn").onclick = () => toggleModal("upgrades-modal");
 
 ws.onmessage = (evt) => {
   const msg = JSON.parse(evt.data);
   if (msg.t === "state") {
+    gameState = msg;
     document.getElementById("coins-display").innerText = `💰 Coins: ${Math.floor(msg.Coins)}`;
-    document.getElementById("lemons-display").innerText = `🍋 Banked Lemons: ${Math.floor(msg.Lemons)}`;
+    document.getElementById("lemons-display").innerText = `🍋 Lemons: ${Math.floor(msg.Lemons)}`;
+    document.getElementById("rebirth-display").innerText = `⭐ Rebirths: ${msg.Rebirths} (x${msg.Multiplier})`;
     document.getElementById("capacity-text").innerText = `Backpack: ${msg.Backpack} / ${msg.Capacity}`;
     document.getElementById("inventory-fill").style.width = `${(msg.Backpack / msg.Capacity) * 100}%`;
-    serverTotalDucks = msg.TotalDucks;
+
+    // Render Plots Seed Growth State
+    if (msg.Plots) {
+      msg.Plots.forEach((p, idx) => {
+        const pm = plotMeshes[idx];
+        pm.pivot.clear();
+        if (p.planted) {
+          const sprout = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3 + (p.progress/100)*0.5),
+            new THREE.MeshStandardMaterial({ color: 0xfacc15 })
+          );
+          sprout.position.y = 0.5; pm.pivot.add(sprout);
+        }
+      });
+    }
+
+    // Build Nursery UI Grid
+    if (msg.DuckNames) {
+      const grid = document.getElementById("seed-grid"); grid.innerHTML = "";
+      msg.DuckNames.forEach((name, i) => {
+        const card = document.createElement("div"); card.className = "shop-card";
+        card.innerHTML = `
+          <strong>🌱 ${name} Seed</strong>
+          <p style="font-size:12px; margin:4px 0;">Owned: ${msg.Ducks[i]}</p>
+          <button onclick="buySeed(${i+1})">Buy 💰${msg.DuckCosts[i]}</button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Build Upgrades UI Grid
+    const upGrid = document.getElementById("upgrades-grid"); upGrid.innerHTML = "";
+    upGrid.innerHTML = `
+      <div class="shop-card">
+        <strong>🎒 Capacity (Lvl ${msg.BackpackLvl})</strong>
+        <button onclick="upgrade('backpack')">Upgrade 💰${msg.UpgradeCostBackpack}</button>
+      </div>
+      <div class="shop-card">
+        <strong>⚡ Speed (Lvl ${msg.SpeedLvl})</strong>
+        <button onclick="upgrade('speed')">Upgrade 💰${msg.UpgradeCostSpeed}</button>
+      </div>
+      <div class="shop-card">
+        <strong>🤖 Worker (${msg.Workers})</strong>
+        <button onclick="upgrade('worker')">Hire 💰${msg.WorkerCost}</button>
+      </div>
+      <div class="shop-card" style="border-color:#facc15;">
+        <strong>⭐ Rebirth</strong>
+        <button onclick="upgrade('rebirth')">Reset & Boost 💰${msg.RebirthCost}</button>
+      </div>
+    `;
   }
 };
 
+window.buySeed = (t) => { ws.send(JSON.stringify({t:"act", a:"BuyDuckSeed", arg:t})); playSound("coin"); };
+window.upgrade = (type) => { ws.send(JSON.stringify({t:"act", a:"Upgrade", arg:type})); playSound("coin"); };
+
+// -------------------------------------------------------------
+// 6. Main Dynamic Render Loop
+// -------------------------------------------------------------
 let lastAction = 0;
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // Day / Night Cycle
-  const time = Date.now() * 0.0005;
-  sunLight.position.x = Math.cos(time) * 50;
-  sunLight.position.y = Math.sin(time) * 50;
-  const isDay = sunLight.position.y > 0;
-  scene.background = new THREE.Color(isDay ? 0x87ceeb : 0x0a0a2a);
-  scene.fog.color = scene.background;
-  ambientLight.intensity = isDay ? 0.4 : 0.1;
-  sunLight.intensity = isDay ? 1 : 0;
+  const speed = baseSpeed + (gameState.SpeedLvl || 1) * 0.02;
 
-  // Movement
+  // Movement Physics
   let mx = moveInput.x, mz = moveInput.z;
-  if(keys.w) mz = -1; if(keys.s) mz = 1; if(keys.a) mx = -1; if(keys.d) mx = 1;
+  if (keys.w) mz = -1; if (keys.s) mz = 1; if (keys.a) mx = -1; if (keys.d) mx = 1;
   const moveVec = new THREE.Vector3(mx, 0, mz);
-  if(moveVec.lengthSq() > 0) {
+  if (moveVec.lengthSq() > 0) {
     moveVec.normalize().applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
     playerGroup.position.addScaledVector(moveVec, speed);
-    body.rotation.y = Math.atan2(moveVec.x, moveVec.z);
-    body.position.y = 1 + Math.abs(Math.sin(Date.now()*0.01))*0.2; // Bobbing
-    if(ws.readyState === 1 && Math.random() < 0.1) ws.send(JSON.stringify({t:"act", a:"Move", arg:{x:playerGroup.position.x, z:playerGroup.position.z, yaw:body.rotation.y}}));
+    playerMesh.rotation.y = Math.atan2(moveVec.x, moveVec.z);
+    playerMesh.position.y = 1 + Math.abs(Math.sin(Date.now() * 0.01)) * 0.15; // Running bounce
+    if (ws.readyState === 1 && Math.random() < 0.1) {
+      ws.send(JSON.stringify({ t: "act", a: "Move", arg: { x: playerGroup.position.x, z: playerGroup.position.z } }));
+    }
   }
 
-  // Camera
-  camera.position.set(playerGroup.position.x + camDist*Math.sin(yaw)*Math.cos(pitch), playerGroup.position.y + 2 + camDist*Math.sin(pitch), playerGroup.position.z + camDist*Math.cos(yaw)*Math.cos(pitch));
+  // Camera Third-Person Lock
+  camera.position.set(
+    playerGroup.position.x + camDist * Math.sin(yaw) * Math.cos(pitch),
+    playerGroup.position.y + 2.5 + camDist * Math.sin(pitch),
+    playerGroup.position.z + camDist * Math.cos(yaw) * Math.cos(pitch)
+  );
   camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z);
 
-  // Interaction Logic
-  let nearObj = null;
+  // Regrow Trees Animation
   const now = Date.now();
-  
-  // Regrow trees
   trees.forEach(t => {
     if (t.lemons < 5 && now - t.lastPicked > 3000) { t.lemons++; t.lastPicked = now; }
     t.mesh.scale.setScalar(0.8 + (t.lemons * 0.04));
-    if (playerGroup.position.distanceTo(t.mesh.position) < 4 && t.lemons > 0) nearObj = "tree";
   });
-  
-  if (playerGroup.position.distanceTo(sellStandPos) < 5) nearObj = "stand";
+
+  // Interaction Zone Checks
+  let nearObj = null, nearPlotIdx = -1;
+  if (playerGroup.position.distanceTo(seedShopPos) < 5) nearObj = "seedShop";
+  else if (playerGroup.position.distanceTo(sellStandPos) < 5) nearObj = "sellStand";
+  else {
+    plotMeshes.forEach(p => {
+      if (playerGroup.position.distanceTo(p.bed.position) < 3.5) { nearObj = "plot"; nearPlotIdx = p.idx; }
+    });
+    if (!nearObj) {
+      trees.forEach(t => {
+        if (playerGroup.position.distanceTo(t.mesh.position) < 3.5 && t.lemons > 0) nearObj = "tree";
+      });
+    }
+  }
 
   const prompt = document.getElementById("action-prompt");
   if (nearObj) {
     prompt.style.display = "block";
-    prompt.innerText = nearObj === "tree" ? "Press E to Pick Lemon" : "Press E to Sell Lemons";
-    if ((keys.e || isInteracting) && now - lastAction > 500) {
-      if (nearObj === "tree") {
-        const targetTree = trees.find(t => playerGroup.position.distanceTo(t.mesh.position) < 4 && t.lemons > 0);
-        if (targetTree) { targetTree.lemons--; targetTree.lastPicked = now; ws.send(JSON.stringify({t: "act", a: "PickLemons"})); }
-      } else {
-        ws.send(JSON.stringify({t: "act", a: "SellLemons"}));
+    if (nearObj === "seedShop") prompt.innerText = "Press E to Open Seed Nursery";
+    else if (nearObj === "sellStand") prompt.innerText = "Press E to Sell Lemons";
+    else if (nearObj === "plot") prompt.innerText = gameState.SeedsHeld > 0 ? "Press E to Plant Seed" : "Buy Duck Seeds at Shop";
+    else if (nearObj === "tree") prompt.innerText = "Press E to Pick Lemon";
+
+    if ((keys.e || isInteracting) && now - lastAction > 350) {
+      if (nearObj === "seedShop") toggleModal("seed-shop-modal");
+      else if (nearObj === "sellStand" && gameState.Backpack > 0) {
+        ws.send(JSON.stringify({ t: "act", a: "SellLemons" }));
+        spawnFloatingText(`+$${gameState.Backpack * 50}`, "#4ade80", playerGroup.position);
+        playSound("coin");
+      } else if (nearObj === "plot" && gameState.SeedsHeld > 0) {
+        ws.send(JSON.stringify({ t: "act", a: "PlantSeed", arg: nearPlotIdx }));
+        playSound("plant");
+      } else if (nearObj === "tree") {
+        const target = trees.find(t => playerGroup.position.distanceTo(t.mesh.position) < 3.5 && t.lemons > 0);
+        if (target && gameState.Backpack < gameState.Capacity) {
+          target.lemons--; target.lastPicked = now;
+          ws.send(JSON.stringify({ t: "act", a: "PickLemons" }));
+          spawnFloatingText("+1 🍋", "#facc15", playerGroup.position);
+          playSound("pop");
+        }
       }
       lastAction = now;
     }
   } else { prompt.style.display = "none"; }
 
-  updateDucks();
+  updatePopups();
+  drawMinimap();
   renderer.render(scene, camera);
 }
 
-window.addEventListener("resize", () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Start loop instantly
 animate();
