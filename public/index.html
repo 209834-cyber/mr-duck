@@ -81,7 +81,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const F = Config.Format;
-const COLORS = [55,50,200,45,120,190,30,60,42,180,350,150,185,170,200,20,195,270,0,290]; // hue per tier
+const COLORS = [55,50,200,45,120,190,30,60,42,180,350,150,185,170,200,20,195,270,0,290];
 
 let token = localStorage.getItem("duckToken");
 if (!token) { token = crypto.randomUUID() + crypto.randomUUID(); localStorage.setItem("duckToken", token); }
@@ -97,24 +97,34 @@ function connect() {
   ws.onclose = () => { toast("Disconnected. Reconnecting..."); setTimeout(connect, 2000); };
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    
+    // Execute handlers for all new game features
     if (window.onExtraMsg) window.onExtraMsg(m);
-    if (m.t === "welcome") { $("login").style.display = "none"; if (m.offline > 0) toast("Welcome back! Your ducks earned " + F(m.offline) + " coins while you were away."); }
+
+    if (m.t === "welcome") { 
+      $("login").style.display = "none"; 
+      if (m.offline > 0) toast("Welcome back! Your ducks earned " + F(m.offline) + " coins while you were away."); 
+    }
     else if (m.t === "state") { state = m; render(); }
     else if (m.t === "board") renderBoard(m);
     else if (m.t === "chat") addChat(m.name, m.msg);
     else if (m.t === "err") toast(m.msg);
   };
 }
+
 $("joinBtn").onclick = () => { localStorage.setItem("duckName", $("nameIn").value); connect(); };
 $("nameIn").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
 
 const act = (a, arg) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ t: "act", a, arg }));
+
 $("lemon").onclick = () => act("PickLemons");
 $("sell").onclick = () => act("SellLemons");
 $("upgrade").onclick = () => act("UpgradeLemon");
-$("rebirth").onclick = () => { if (confirm("Rebirth resets your coins, lemons, ducks and lemon stage for a permanent multiplier. Continue?")) act("Rebirth"); };
+$("rebirth").onclick = () => { 
+  if (confirm("Rebirth resets your coins, lemons, ducks and lemon stage for a permanent multiplier. Continue?")) act("Rebirth"); 
+};
 
-// shop
+// Populate Shop Items
 const shopEls = [];
 Config.DuckNames.forEach((name, i) => {
   const b = document.createElement("button");
@@ -127,6 +137,8 @@ Config.DuckNames.forEach((name, i) => {
 
 function render() {
   const s = state;
+  if (!s) return;
+
   $("coins").textContent = `💰 ${F(s.Coins)} (+${F(s.Income)}/s)`;
   $("lemons").textContent = `🍋 ${F(s.Lemons)} (+${F(s.LemonRate)}/s)`;
   $("ducks").textContent = `🦆 ${s.Total}/${s.Slots}`;
@@ -140,7 +152,10 @@ function render() {
     const c = Config.Stage(next).Cost;
     $("upgrade").textContent = `⬆ ${Config.StageNames[next - 1]} (${F(c)})`;
     $("upgrade").disabled = s.Coins < c;
-  } else { $("upgrade").textContent = "MAX Lemon Stage!"; $("upgrade").disabled = true; }
+  } else { 
+    $("upgrade").textContent = "MAX Lemon Stage!"; 
+    $("upgrade").disabled = true; 
+  }
 
   const rc = Config.RebirthCost(s.Rebirths);
   $("rebirth").textContent = `🔄 Rebirth #${s.Rebirths + 1} (${F(rc)}) → x${Config.RebirthMult(s.Rebirths + 1).toFixed(2)}`;
@@ -152,16 +167,18 @@ function render() {
     b.disabled = s.Coins < cost || s.Total >= s.Slots;
   });
 
-  // pond (only rebuild when duck counts change)
+  // Rebuild pond ducks only when count changes
   const key = s.Ducks.join(",");
   if (render.key !== key) {
     render.key = key;
-    const pond = $("pond"); pond.innerHTML = "";
+    const pond = $("pond"); 
+    pond.innerHTML = "";
     let n = 0;
     s.Ducks.forEach((cnt, i) => {
       for (let k = 0; k < cnt; k++) {
         const d = document.createElement("div");
-        d.className = "duck"; d.textContent = "🦆";
+        d.className = "duck"; 
+        d.textContent = "🦆";
         d.style.fontSize = (24 + i * 1.2) + "px";
         d.style.filter = `hue-rotate(${COLORS[i] - 50}deg) saturate(1.3)`;
         d.style.animationDelay = (n++ % 10) * 0.2 + "s";
@@ -174,20 +191,37 @@ function render() {
 
 function renderBoard(m) {
   $("board").innerHTML = "";
-  m.rows.forEach((r) => { const li = document.createElement("li"); li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; $("board").appendChild(li); });
+  m.rows.forEach((r) => { 
+    const li = document.createElement("li"); 
+    li.textContent = `${r.name} — ${r.rebirths} rebirths, ${F(r.earned)} earned`; 
+    $("board").appendChild(li); 
+  });
+
   $("online").innerHTML = "";
-  m.players.forEach((p) => { const li = document.createElement("li"); li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; $("online").appendChild(li); });
+  m.players.forEach((p) => { 
+    const li = document.createElement("li"); 
+    li.textContent = `${p.name} — 🦆${p.ducks} · ${Config.StageNames[p.stage - 1]}`; 
+    $("online").appendChild(li); 
+  });
 }
 
 function addChat(name, msg) {
   const div = document.createElement("div");
-  const b = document.createElement("b"); b.textContent = name + ": ";
-  div.appendChild(b); div.appendChild(document.createTextNode(msg));
-  const log = $("chatlog"); log.appendChild(div); log.scrollTop = log.scrollHeight;
+  const b = document.createElement("b"); 
+  b.textContent = name + ": ";
+  div.appendChild(b); 
+  div.appendChild(document.createTextNode(msg));
+  const log = $("chatlog"); 
+  log.appendChild(div); 
+  log.scrollTop = log.scrollHeight;
   while (log.children.length > 80) log.removeChild(log.firstChild);
 }
+
 $("chatin").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.target.value.trim()) { ws.send(JSON.stringify({ t: "chat", msg: e.target.value })); e.target.value = ""; }
+  if (e.key === "Enter" && e.target.value.trim()) { 
+    ws.send(JSON.stringify({ t: "chat", msg: e.target.value })); 
+    e.target.value = ""; 
+  }
 });
 </script>
 <script src="admin.js"></script>
