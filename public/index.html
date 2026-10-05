@@ -3,78 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>3D Duck Seed & Lemon Tycoon Ultra</title>
+  <title>2D Duck & Lemon Tycoon Ultra - Infinite Progression</title>
   <style>
     * { box-sizing: border-box; }
     body, html {
       margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      user-select: none; -webkit-user-select: none; background: #1a1a2e; touch-action: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a; color: #fff; user-select: none; touch-action: none;
     }
 
-    /* Guaranteed Canvas Container Layout */
-    #game-canvas {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block;
-    }
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* Main UI Overlay */
     #ui-layer {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 10; padding: 15px;
       display: flex; flex-direction: column; justify-content: space-between;
     }
 
-    .hud-top {
-      display: flex; justify-content: space-between; align-items: flex-start;
-    }
+    .hud-top { display: flex; justify-content: space-between; align-items: flex-start; }
 
     .stat-box {
-      background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(255, 255, 255, 0.2);
-      border-radius: 12px; padding: 10px 16px; color: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4); backdrop-filter: blur(8px);
+      background: rgba(15, 23, 42, 0.9); border: 2px solid #facc15;
+      border-radius: 12px; padding: 12px 18px; color: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6); backdrop-filter: blur(8px);
     }
-    .stat-box h2 { margin: 0 0 4px 0; font-size: 18px; color: #facc15; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .stat-box h2 { margin: 0 0 4px 0; font-size: 20px; color: #facc15; }
     .stat-box h3 { margin: 2px 0; font-size: 14px; color: #e2e8f0; }
 
     #inventory-bar {
-      width: 180px; height: 14px; background: rgba(0,0,0,0.6);
-      border: 1.5px solid #fff; border-radius: 8px; margin-top: 6px; overflow: hidden;
+      width: 200px; height: 16px; background: #334155;
+      border: 1.5px solid #fff; border-radius: 8px; margin-top: 8px; overflow: hidden;
     }
-    #inventory-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #facc15, #4ade80); transition: width 0.2s; }
+    #inventory-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #facc15, #22c55e); transition: width 0.15s; }
 
-    /* Mini-Map Overlay */
-    #minimap-container {
-      width: 120px; height: 120px; background: rgba(15, 23, 42, 0.85);
-      border: 2px solid #facc15; border-radius: 50%; overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: auto;
+    .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+    .hud-btn {
+      background: rgba(15, 23, 42, 0.9); border: 2px solid #facc15; color: #fff;
+      padding: 10px 16px; border-radius: 10px; font-weight: bold; cursor: pointer;
+      pointer-events: auto; margin-left: 8px; font-size: 14px; transition: 0.2s;
     }
-    #minimap { width: 100%; height: 100%; }
+    .hud-btn:hover { background: #facc15; color: #0f172a; }
 
-    /* Crosshair & Prompts */
-    #crosshair {
-      position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
-      background: #fff; border: 1px solid #000; border-radius: 50%;
-      transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
-    }
     #action-prompt {
-      position: absolute; top: 58%; left: 50%; transform: translateX(-50%);
+      position: absolute; top: 60%; left: 50%; transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.85); color: #facc15; border: 2px solid #facc15;
-      padding: 8px 18px; border-radius: 20px; font-weight: bold; font-size: 15px;
-      text-shadow: 1px 1px 2px black; pointer-events: none; display: none; z-index: 10;
+      padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 16px;
+      pointer-events: none; display: none; z-index: 10;
     }
 
-    /* Modals System */
     .game-modal {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 90%; max-width: 520px; max-height: 85vh; overflow-y: auto;
-      background: rgba(15, 23, 42, 0.95); border: 3px solid #facc15; border-radius: 18px;
-      padding: 20px; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-      display: none; z-index: 30; pointer-events: auto; backdrop-filter: blur(10px);
+      width: 90%; max-width: 580px; max-height: 85vh; overflow-y: auto;
+      background: rgba(15, 23, 42, 0.98); border: 3px solid #facc15; border-radius: 18px;
+      padding: 20px; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+      display: none; z-index: 30; pointer-events: auto; backdrop-filter: blur(12px);
     }
     .game-modal h2 { margin-top: 0; text-align: center; color: #facc15; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
     .close-btn { position: absolute; top: 12px; right: 16px; background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; }
 
-    .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 15px; }
+    .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 15px; }
     .shop-card {
       background: rgba(255,255,255,0.05); border: 1.5px solid rgba(250, 204, 21, 0.4);
       border-radius: 12px; padding: 12px; text-align: center; display: flex; flex-direction: column; justify-content: space-between;
@@ -85,14 +72,6 @@
     }
     .shop-card button:hover { background: #4ade80; }
 
-    /* Quick Action Buttons */
-    .hud-bottom-right { display: flex; gap: 10px; pointer-events: auto; }
-    .hud-btn {
-      background: rgba(15, 23, 42, 0.85); border: 2px solid #facc15; color: white;
-      padding: 10px 14px; border-radius: 12px; font-weight: bold; cursor: pointer;
-    }
-
-    /* Mobile Controls Overlay */
     #joystick-zone {
       position: absolute; bottom: 25px; left: 25px; width: 120px; height: 120px;
       background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
@@ -112,64 +91,69 @@
 
     @media (min-width: 900px) { #joystick-zone, #action-btn { display: none; } }
   </style>
-
-  <!-- Three.js Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-  <!-- WebGL Canvas Host -->
   <canvas id="game-canvas"></canvas>
 
-  <!-- Heads-Up Display -->
   <div id="ui-layer">
     <div class="hud-top">
       <div class="stat-box">
         <h2 id="coins-display">💰 Coins: 0</h2>
-        <h3 id="lemons-display">🍋 Lemons: 0</h3>
-        <h3 id="rebirth-display">⭐ Rebirths: 0 (x1.0)</h3>
+        <h3 id="lemons-display">🍋 Lemons Sold: 0</h3>
+        <h3 id="rebirth-display">⭐ Rebirths: 0 (x1.0 Multiplier)</h3>
+        <h3 id="tokens-display" style="color:#a855f7;">🔮 Rebirth Tokens: 0</h3>
         <div id="inventory-bar"><div id="inventory-fill"></div></div>
         <p id="capacity-text" style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">Backpack: 0 / 10</p>
       </div>
-
-      <div id="minimap-container">
-        <canvas id="minimap" width="120" height="120"></canvas>
-      </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-      <div style="color: rgba(255,255,255,0.7); font-size: 12px; pointer-events: auto;">
-        PC: WASD = Walk | Mouse = Look | E = Interact | U = Upgrades
+    <div class="hud-bottom">
+      <div style="color: rgba(255,255,255,0.7); font-size: 13px; pointer-events: auto;">
+        WASD / Arrow Keys = Walk | E = Interact | Space = Quick Pick/Plant
       </div>
-      <div class="hud-bottom-right">
+      <div>
+        <button class="hud-btn" id="open-seed-btn">🌱 Seed Nursery</button>
         <button class="hud-btn" id="open-upgrades-btn">⚡ Upgrades</button>
+        <button class="hud-btn" id="open-rebirth-btn" style="border-color:#a855f7;">🔮 Rebirth Tree</button>
       </div>
     </div>
   </div>
 
-  <div id="crosshair"></div>
   <div id="action-prompt">Press E to Interact</div>
 
-  <!-- Seed Nursery Shop Modal -->
+  <!-- Seed Nursery Modal -->
   <div class="game-modal" id="seed-shop-modal">
     <button class="close-btn" onclick="closeModals()">✕</button>
     <h2>🌱 Duck Seed & Nursery Shop</h2>
-    <p style="text-align:center; font-size: 13px; color: #94a3b8; margin-top: -5px;">Buy seeds and plant them at the Pond Plots to hatch ducks!</p>
+    <p style="text-align:center; font-size: 13px; color: #94a3b8; margin-top: -5px;">Buy seeds, carry them to the Pond Soil Plots, and plant them!</p>
     <div class="shop-grid" id="seed-grid"></div>
   </div>
 
   <!-- Tycoon Upgrades Modal -->
   <div class="game-modal" id="upgrades-modal">
     <button class="close-btn" onclick="closeModals()">✕</button>
-    <h2>⚡ Tycoon Upgrades & Rebirth</h2>
+    <h2>⚡ Tycoon Upgrades</h2>
     <div class="shop-grid" id="upgrades-grid"></div>
   </div>
 
-  <!-- Touch Controls -->
+  <!-- Rebirth Tree Modal -->
+  <div class="game-modal" id="rebirth-modal">
+    <button class="close-btn" onclick="closeModals()">✕</button>
+    <h2>🔮 Infinite Rebirth Skill Tree</h2>
+    <p style="text-align:center; font-size: 13px; color: #a855f7; margin-top: -5px;" id="rebirth-status-text"></p>
+    <div style="text-align:center; margin-bottom: 15px;">
+      <button onclick="executeRebirth()" style="background:#a855f7; border:none; color:white; font-size:16px; font-weight:bold; padding:12px 24px; border-radius:10px; cursor:pointer;">
+        ⭐ PERFORM REBIRTH NOW
+      </button>
+    </div>
+    <div class="shop-grid" id="rebirth-tree-grid"></div>
+  </div>
+
+  <!-- Mobile Controls -->
   <div id="joystick-zone"><div id="joystick-knob"></div></div>
   <div id="action-btn">INTERACT</div>
 
-  <script src="config.js"></script>
-  <script src="game3d.js"></script>
+  <script src="game2d.js"></script>
 </body>
 </html>
