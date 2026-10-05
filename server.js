@@ -1,4 +1,3 @@
-// server.js - Duck & Lemon Tycoon Server
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -22,104 +21,36 @@ async function writeSaves() {
   if (!tokens.size) return;
   writing = true;
   try { await store.save([...tokens], saves); }
-  catch (e) { console.error("Save error:", e.message); tokens.forEach((t) => pending.add(t)); }
+  catch (e) { console.error("Save error:", e); tokens.forEach((t) => pending.add(t)); }
   finally { writing = false; }
 }
 setInterval(writeSaves, 20000);
-
-let exiting = false;
-async function flushAndExit() {
-  if (exiting) return;
-  exiting = true;
-  setTimeout(() => process.exit(0), 8000).unref();
-  writing = false;
-  await writeSaves();
-  process.exit(0);
-}
-process.on("SIGINT", flushAndExit);
-process.on("SIGTERM", flushAndExit);
 
 const NUM_DUCKS = Config.DuckNames.length;
 const INCOME = []; const COST = [];
 for (let i = 1; i <= NUM_DUCKS; i++) { INCOME.push(Config.DuckIncome(i)); COST.push(Config.DuckCost(i)); }
 
 const newData = () => ({
-  Coins: 500, Lemons: 0, Ducks: new Array(NUM_DUCKS).fill(0),
-  Stage: 1, Rebirths: 0, Earned: 0, World: 1,
-  Eggs: 0, EggUp: {}, Ach: [], Streak: 0, LastDay: 0, BestTier: 0,
+  Coins: 500, Lemons: 0, Backpack: 0, Ducks: new Array(NUM_DUCKS).fill(0),
+  Stage: 1, Rebirths: 0, Earned: 0, World: 1
 });
 
-function ensureValidDucks(d) {
-  if (!Array.isArray(d.Ducks)) d.Ducks = [];
-  if (d.Ducks.length < NUM_DUCKS) d.Ducks = d.Ducks.concat(new Array(NUM_DUCKS - d.Ducks.length).fill(0));
-}
 function ensureProg(d) {
-  ensureValidDucks(d);
-  if (!d.World) d.World = 1;
-  if (typeof d.Eggs !== "number" || !isFinite(d.Eggs)) d.Eggs = 0;
-  if (!d.EggUp || typeof d.EggUp !== "object") d.EggUp = {};
-  if (!Array.isArray(d.Ach)) d.Ach = [];
-  d.Streak = d.Streak || 0; d.LastDay = d.LastDay || 0; d.BestTier = d.BestTier || 0;
+  if (!Array.isArray(d.Ducks)) d.Ducks = new Array(NUM_DUCKS).fill(0);
+  if (d.Ducks.length < NUM_DUCKS) d.Ducks = d.Ducks.concat(new Array(NUM_DUCKS - d.Ducks.length).fill(0));
+  d.World = d.World || 1;
+  d.Backpack = d.Backpack || 0;
   d.Earned = d.Earned || 0;
 }
 
-const totalDucks = (d) => { ensureValidDucks(d); let t = 0; for (let i = 0; i < NUM_DUCKS; i++) t += d.Ducks[i]; return t; };
-const worldMult = (d) => (Config.Worlds[d.World || 1] || Config.Worlds[1]).coinMult;
-const worldLemonMult = (d) => (Config.Worlds[d.World || 1] || Config.Worlds[1]).lemonMult;
+const totalDucks = (d) => d.Ducks.reduce((a, b) => a + b, 0);
+const getCapacity = (d) => 10 + (d.Stage * 5); // Backpack grows with stage
 
 function incomePerSec(d) {
-  ensureValidDucks(d);
   let sum = 0;
   for (let i = 0; i < NUM_DUCKS; i++) if (d.Ducks[i] > 0) sum += d.Ducks[i] * INCOME[i];
-  return sum * Config.RebirthMult(d.Rebirths) * worldMult(d);
+  return sum * Config.RebirthMult(d.Rebirths);
 }
-const lemonRate = (d) => Config.Stage(d.Stage).LemonsPerSec * worldLemonMult(d);
-
-function addCoins(d, n) {
-  d.Coins += n; d.Earned += n;
-  if (!isFinite(d.Coins)) d.Coins = 1e308;
-  if (!isFinite(d.Earned)) d.Earned = 1e308;
-}
-function sellLemons(d) {
-  addCoins(d, d.Lemons * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths) * worldMult(d) * admin.mult("coins"));
-  d.Lemons = 0;
-}
-
-function sanitizeName(s) {
-  s = String(s || "").replace(/[^\p{L}\p{N} _\-]/gu, "").trim().slice(0, 16);
-  return s || "Duckling" + Math.floor(Math.random() * 9999);
-}
-
-function buyDuck(d, tier) {
-  if (!Number.isInteger(tier) || tier < 1 || tier > NUM_DUCKS) return false;
-  const cost = COST[tier - 1];
-  if (d.Coins < cost) return false;
-  if (totalDucks(d) >= Config.MaxSlots(d.Stage)) return false;
-  d.Coins -= cost;
-  d.Ducks[tier - 1]++;
-  if (tier > d.BestTier) d.BestTier = tier;
-  return true;
-}
-
-function sellDuck(d, tier) {
-  if (!Number.isInteger(tier) || tier < 1 || tier > NUM_DUCKS) return false;
-  if (d.Ducks[tier - 1] <= 0) return false;
-  const refund = Math.floor(COST[tier - 1] * 0.7);
-  d.Ducks[tier - 1]--;
-  addCoins(d, refund);
-  return true;
-}
-
-function upgradeStage(d) {
-  const next = d.Stage + 1;
-  if (next > Config.StageNames.length) return false;
-  const cost = Config.Stage(next).Cost;
-  if (d.Coins < cost) return false;
-  d.Coins -= cost; d.Stage = next;
-  return true;
-}
-
-const muted = new Set();
 
 function handleAction(ws, rec, action, arg) {
   const d = rec.d;
@@ -127,128 +58,83 @@ function handleAction(ws, rec, action, arg) {
 
   if (action === "PickLemons") {
     const now = Date.now();
-    if (now - (rec.lastPick || 0) < 50) return;
+    if (now - (rec.lastPick || 0) < 500) return; // 0.5s cooldown per pick
     rec.lastPick = now;
-    d.Lemons += Config.Stage(d.Stage).PickAmount * worldLemonMult(d) * admin.mult("lemons");
-  } else if (action === "SellLemons") {
-    sellLemons(d);
-  } else if (action === "BuyDuck") {
-    buyDuck(d, Number(arg));
-  } else if (action === "SellDuck") {
-    sellDuck(d, Number(arg));
-  } else if (action === "UpgradeLemon") {
-    upgradeStage(d);
-  } else if (action === "Rebirth") {
-    if (d.Coins < Config.RebirthCost(d.Rebirths)) return;
-    const fresh = newData();
-    fresh.Rebirths = d.Rebirths + 1;
-    fresh.Earned = d.Earned;
-    fresh.World = d.World;
-    fresh.Ducks[0] = fresh.Rebirths;
-    rec.d = saves[rec.token].d = fresh;
-    send(ws, { t: "toast", msg: `🔄 Rebirth #${fresh.Rebirths}!` });
-  } else if (action === "SwitchWorld") {
-    const target = Number(arg);
-    const w = Config.Worlds[target];
-    if (w && d.Rebirths >= w.unlockRebirths) d.World = target;
-  } else if (action === "Move") {
-    if (typeof arg === "object") {
-      rec.pos = { x: arg.x || 0, y: arg.y || 0, z: arg.z || 0, yaw: arg.yaw || 0 };
+    const capacity = getCapacity(d);
+    if (d.Backpack < capacity) {
+      d.Backpack += 1; // Pick 1 lemon physically
     }
+  } else if (action === "SellLemons") {
+    if (d.Backpack > 0) {
+      const value = d.Backpack * Config.Stage(d.Stage).SellPrice * Config.RebirthMult(d.Rebirths);
+      d.Coins += value;
+      d.Earned += value;
+      d.Lemons += d.Backpack; // Track lifetime lemons gathered
+      d.Backpack = 0;
+    }
+  } else if (action === "BuyDuck") {
+    const tier = Number(arg);
+    if (tier >= 1 && tier <= NUM_DUCKS && d.Coins >= COST[tier - 1]) {
+      d.Coins -= COST[tier - 1];
+      d.Ducks[tier - 1]++;
+    }
+  } else if (action === "Move") {
+    if (typeof arg === "object") rec.pos = { x: arg.x || 0, y: arg.y || 0, z: arg.z || 0, yaw: arg.yaw || 0 };
   }
 }
 
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
-  let p = decodeURIComponent(req.url.split("?")[0]);
-  if (p === "/healthz") { res.writeHead(200); return res.end("ok"); }
+  let p = req.url.split("?")[0];
   if (p === "/") p = "/index.html";
   const file = path.normalize(path.join(PUBLIC, p));
-  if (!file.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
+  if (!file.startsWith(PUBLIC)) return res.writeHead(403).end();
   fs.readFile(file, (err, buf) => {
-    if (err) { res.writeHead(404); return res.end("Not found"); }
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-    res.end(buf);
+    if (err) return res.writeHead(404).end();
+    res.writeHead(200); res.end(buf);
   });
 });
 
-const wss = new WebSocketServer({ server, maxPayload: 65536 });
+const wss = new WebSocketServer({ server });
 const online = new Map();
 
 const send = (ws, obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
-const broadcast = (obj) => { for (const ws of online.keys()) send(ws, obj); };
 
 function stateFor(rec) {
-  const d = rec.d;
-  ensureProg(d);
-
+  const d = rec.d; ensureProg(d);
   const players = [];
-  for (const [ws, r] of online) {
-    if (r !== rec && r.pos) {
-      players.push({ name: r.name, pos: r.pos });
-    }
-  }
-
+  for (const [ws, r] of online) if (r !== rec && r.pos) players.push({ name: r.name, pos: r.pos });
   return {
-    t: "state", Coins: d.Coins, Lemons: d.Lemons, Ducks: d.Ducks, Stage: d.Stage,
-    Rebirths: d.Rebirths, World: d.World || 1, Income: incomePerSec(d) * admin.mult("coins"),
-    LemonRate: lemonRate(d), Slots: Config.MaxSlots(d.Stage), Total: totalDucks(d),
-    Buffs: admin.snapshot(), OtherPlayers: players,
+    t: "state", Coins: d.Coins, Lemons: d.Lemons, Backpack: d.Backpack, Capacity: getCapacity(d),
+    Ducks: d.Ducks, Stage: d.Stage, TotalDucks: totalDucks(d), OtherPlayers: players
   };
 }
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", (ws) => {
   let rec = null;
-  const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
-
   ws.on("message", (raw) => {
-    let m;
-    try { m = JSON.parse(raw); } catch { return; }
-
+    let m; try { m = JSON.parse(raw); } catch { return; }
     if (m.t === "login" && !rec) {
       const token = String(m.token || "").slice(0, 64);
-      if (token.length < 16) return send(ws, { t: "err", msg: "Bad token" });
-      const name = sanitizeName(m.name);
       let s = saves[token];
-      if (!s) {
-        s = saves[token] = { name, d: newData(), lastSeen: Date.now() };
-      } else {
-        s.name = name;
-        ensureProg(s.d);
-      }
-      rec = { token, name, d: s.d, tick: 0, pos: { x: 0, y: 0, z: 0, yaw: 0 } };
+      if (!s) s = saves[token] = { name: "Player", d: newData(), lastSeen: Date.now() };
+      rec = { token, name: s.name, d: s.d, pos: { x: 0, y: 0, z: 0, yaw: 0 } };
       online.set(ws, rec);
       send(ws, stateFor(rec));
     } else if (m.t === "act") {
       handleAction(ws, rec, String(m.a), m.arg);
       send(ws, stateFor(rec));
-    } else if (m.t === "admin") {
-      if (!rec.admin) return send(ws, { t: "admin_err", msg: "Not authorised." });
-      const ctx = { online, Config, saves, broadcast, send, addCoins, totalDucks, incomePerSec, lemonRate, writeSaves };
-      const result = admin.handle(m, ctx);
-      send(ws, { t: "admin_ok", msg: result });
     }
   });
-
-  ws.on("close", () => {
-    if (rec) {
-      if (saves[rec.token]) saves[rec.token].lastSeen = Date.now();
-      pending.add(rec.token);
-      online.delete(ws);
-    }
-  });
+  ws.on("close", () => { if (rec) { pending.add(rec.token); online.delete(ws); } });
 });
 
 setInterval(() => {
   for (const [ws, rec] of online) {
     const d = rec.d;
-    addCoins(d, incomePerSec(d) * admin.mult("coins"));
-    d.Lemons += lemonRate(d) * admin.mult("lemons");
+    const inc = incomePerSec(d);
+    if (inc > 0) { d.Coins += inc; d.Earned += inc; }
     send(ws, stateFor(rec));
   }
 }, 1000);
 
-store.load().then((loaded) => {
-  saves = loaded;
-  server.listen(PORT, () => console.log(`Tycoon online on port ${PORT}`));
-});
+store.load().then((loaded) => { saves = loaded; server.listen(PORT, () => console.log(`Online on ${PORT}`)); });
